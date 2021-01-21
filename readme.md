@@ -1,6 +1,15 @@
 # smem
 
-**I did not make this software, I merely edited it for Python 3 compatibility**
+**I did not make this software - just will try to improve it**
+
+ToDo:
+  add support for proc/pid/smaps_rollup (big speed boost for nonmaping part)
+  add SwapPss
+  add group by command mode for grouped top lists
+  add TPss column - Pss + SwapPss to get all prportional sum
+  exclude own process from list
+  
+
 
 [smem](http://www.selenic.com/smem/) is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem can report proportional set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual memory system.
 
