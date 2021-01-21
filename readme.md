@@ -3,11 +3,11 @@
 **I did not make this software - just will try to improve it**
 
 ToDo:
-  *add support for proc/pid/smaps_rollup (big speed boost for nonmaping part)
-  *add SwapPss
-  *add group by command mode for grouped top lists
-  *add TPss column - Pss + SwapPss to get all prportional sum
-  *exclude own process from listing
+ * add support for proc/pid/smaps_rollup (big speed boost for nonmaping part)
+ * add SwapPss
+ * add group by command mode - same executables grouped together
+ * add TPss column - Pss + SwapPss
+ * exclude own process from output
   
 
 
