@@ -90,10 +90,16 @@ class ProcessData(Proc):
 
     def pids(self):
         """Get a list of PID's"""
-        return [int(e) for e in self.listdir() if e.isdigit() and not self._iskernel(e)]
+        op=os.getpid()                                                                          # exclude own process
+        return [int(e) for e in self.listdir() if e.isdigit() and not self._iskernel(e) and not int(e) == op]  
 
-    def mapdata(self, pid):
+    def mapdata(self, pid, rollup=False):
         """Return PID smaps data"""
+        if rollup:
+            try:
+                return self.readlines('%s/smaps_rollup' % pid)                                  # smaps_rollup new from kernel 4.14, at least 7x faster for non maping listing
+            except Exception:
+                pass
         return self.readlines('%s/smaps' % pid)
 
     def pidcmd(self, pid):
@@ -128,20 +134,18 @@ def totalmem():
         return memdata('memtotal')
 
 
-def pidmaps(pid):
+def pidmaps(pid, rollup=False):
     maps = {}
     start = None
     seen = False
     empty = True
-    for l in proc.mapdata(pid):
+    for l in proc.mapdata(pid, rollup):
         empty = False
         f = l.split()
         if f[-1] == 'kB':
-            if f[0].startswith('Pss'):
-                seen = True
             maps[start][f[0][:-1].lower()] = int(f[1])
         elif '-' in f[0] and ':' not in f[0]:  # looks like a mapping range
-            start, end = f[0].split('-')
+            start, end = f[0].split('-')  
             start = int(start, 16)
             name = "<anonymous>"
             if len(f) > 5:
@@ -153,11 +157,6 @@ def pidmaps(pid):
                 device=f[3],
                 inode=f[4],
                 name=name)
-
-    if not empty and not seen and not warned:
-        print("Warning: Kernel does not appear to support PSS measurement")
-        if not options.sort:
-            options.sort = 'rss'
 
     if options.mapfilter:
         f = {}
@@ -191,9 +190,10 @@ def maptotals(pids):
                         referenced=0,
                         swap=0,
                         pids=0)
+                    if SWAPPSS:
+                        t['swappss']=0
                 else:
                     t = totals[name]
-
                 for k in t:
                     t[k] += maps[m].get(k, 0)
                 t['count'] += 1
@@ -206,8 +206,8 @@ def maptotals(pids):
     return totals
 
 
-def pidtotals(pid):
-    maps = pidmaps(pid)
+def pidtotals(pid, rollup):
+    maps = pidmaps(pid, rollup)
     t = dict(
         size=0,
         rss=0,
@@ -218,6 +218,9 @@ def pidtotals(pid):
         private_dirty=0,
         referenced=0,
         swap=0)
+    if SWAPPSS:
+        t['swappss']=0
+
     for m in list(maps.keys()):
         for k in t:
             t[k] += maps[m].get(k, 0)
@@ -228,14 +231,14 @@ def pidtotals(pid):
     return t
 
 
-def usertotals(pids):
+def usertotals(pids, rollup):
     totals = {}
     for pid in pids:
         if (filters(options.processfilter, pid, proc.pidcmd)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
-            maps = pidmaps(pid)
+            maps = pidmaps(pid, rollup)
             if len(maps) == 0:
                 continue
         except EnvironmentError:
@@ -249,10 +252,12 @@ def usertotals(pids):
                 shared_clean=0,
                 shared_dirty=0,
                 private_clean=0,
-                count=0,
                 private_dirty=0,
+                count=0,
                 referenced=0,
                 swap=0)
+            if SWAPPSS:
+                t['swappss']=0
         else:
             t = totals[user]
 
@@ -262,6 +267,57 @@ def usertotals(pids):
 
         t['count'] += 1
         totals[user] = t
+    return totals
+
+def processtotals(pids, rollup):
+    totals = {}
+    for pid in pids:
+        if (filters(options.processfilter, pid, proc.pidcmd)
+                or filters(options.userfilter, pid, proc.pidusername)):
+            continue
+        try:
+            p = pidtotals(pid, rollup)
+            if p['maps'] != 0:
+                totals[pid] = p
+        except:
+            continue
+    return totals
+
+
+def cmdtotals(pids, rollup):  # GdH
+    totals = {}
+    for pid in pids:
+        if (filters(options.processfilter, pid, proc.pidcmd)
+                or filters(options.userfilter, pid, proc.pidusername)):
+            continue
+        try:
+            pt = pidtotals(pid, rollup)
+            cmd = proc.pidcmd(pid).split()[0]
+            
+            if cmd not in totals:
+                t = dict(
+                    size=0,
+                    rss=0,
+                    pss=0,
+                    uss=0,
+                    shared_clean=0,
+                    shared_dirty=0,
+                    private_clean=0,
+                    private_dirty=0,
+                    referenced=0,
+                    swap=0,
+                    pids=0)
+                if SWAPPSS:
+                    t['swappss']=0
+            else:
+                t = totals[cmd]
+            for k in t:
+                t[k] += pt.get(k, 0)
+            t['pids'] += 1
+            totals[cmd] = t
+
+        except EnvironmentError:
+            continue
     return totals
 
 
@@ -304,6 +360,7 @@ def fromunits(x):
 
 
 def showamount(a, total):
+    #if not isinstance(a, int): return a
     if options.abbreviate:
         return units(a * 1024)
     elif options.percent:
@@ -316,26 +373,10 @@ def showamount(a, total):
 def filters(opt, arg, *sources):
     if not opt:
         return False
-
     for f in sources:
         if re.search(opt, f(arg)):
             return False
     return True
-
-
-def processtotals(pids):
-    totals = {}
-    for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd)
-                or filters(options.userfilter, pid, proc.pidusername)):
-            continue
-        try:
-            p = pidtotals(pid)
-            if p['maps'] != 0:
-                totals[pid] = p
-        except:
-            continue
-    return totals
 
 
 def widthstr(field, width, default):
@@ -349,10 +390,9 @@ def widthstr(field, width, default):
     return '%-{size}.{size}s'.format(size=size)
 
 
-def showpids():
+def showpids(rollup):
     p = proc.pids()
-    pt = processtotals(p)
-
+    pt = processtotals(p, rollup)
     def showuser(p):
         if options.numeric:
             return proc.piduser(p)
@@ -377,6 +417,13 @@ def showpids():
         vss=('VSS', lambda n: pt[n]['size'], '% 8a', sum,
              'virtual set size (total virtual memory mapped)'),
     )
+
+    if SWAPPSS:
+        fields['swappss']=('SwapPss', lambda n: pt[n]['swappss'], '% 8a', sum,
+              'proportional amount of swap space consumed')
+        fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
+             'Total virtual memory used (Pss + SwapPss)')
+
     columns = options.columns or 'pid user command swap uss pss rss'
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
@@ -409,14 +456,20 @@ def showmaps():
         avgrss=('AVGRSS', lambda n: int(1.0 * pt[n]['rss'] / pt[n]['pids']),
                 '% 8a', sum, 'average RSS per PID'),
     )
+
+    if SWAPPSS:
+        fields['swappss']=('SwapPss', lambda n: pt[n]['swappss'], '% 8a', sum,
+              'proportional amount of swap space consumed')
+        fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
+             'Total virtual memory used (Pss + SwapPss)')
     columns = options.columns or 'map pids avgpss pss'
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
 
-def showusers():
+def showusers(rollup):
     p = proc.pids()
-    pt = usertotals(p)
+    pt = usertotals(p, rollup)
 
     def showuser(u):
         if options.numeric:
@@ -436,10 +489,51 @@ def showusers():
              'resident set size (ignoring sharing)'),
         pss=('PSS', lambda n: pt[n]['pss'], '% 8a', sum,
              'proportional set size (including sharing)'),
-        vss=('VSS', lambda n: pt[n]['pss'], '% 8a', sum,
+        tpss=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
+             'Total proportional memory used (Pss + SwapPss)'),
+        vss=('VSS', lambda n: pt[n]['size'], '% 8a', sum,
              'virtual set size (total virtual memory mapped)'),
     )
+
+    if SWAPPSS:
+        fields['swappss']=('SwapPss', lambda n: pt[n]['swappss'], '% 8a', sum,
+              'proportional amount of swap space consumed')
+        fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
+             'Total virtual memory used (Pss + SwapPss)')
+
     columns = options.columns or 'user count swap uss pss rss'
+
+    showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
+
+
+def showcmds(rollup):
+    p = proc.pids()
+    pt= cmdtotals(p, rollup)
+
+    fields = dict(
+        command=('Command', lambda n: n,
+                 widthstr('command', options.cmd_width, 27), None,
+                 'process command'),
+        swap=('Swap', lambda n: pt[n]['swap'], '% 8a', sum,
+              'amount of swap space consumed (ignoring sharing)'),
+        uss=('USS', lambda n: pt[n]['uss'], '% 8a', sum, 'unique set size'),
+        rss=('RSS', lambda n: pt[n]['rss'], '% 8a', sum,
+             'resident set size (ignoring sharing)'),
+        pss=('PSS', lambda n: pt[n]['pss'], '% 8a', sum,
+             'proportional set size (including sharing)'),
+        vss=('VSS', lambda n: pt[n]['size'], '% 8a', sum,
+             'virtual set size (total virtual memory mapped)'),
+        pids=('PIDs', lambda n: pt[n]['pids'], '% 5s', sum,
+             'Number of processes'),
+    )
+
+    if SWAPPSS:
+        fields['swappss']=('SwapPss', lambda n: pt[n]['swappss'], '% 8a', sum,
+              'proportional amount of swap space consumed')
+        fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
+             'Total virtual memory used (Pss + SwapPss)')
+
+    columns = options.columns or 'command pids swap uss pss rss'
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
@@ -477,7 +571,7 @@ def showsystem():
     f = m('memfree')
 
     # total amount used by hardware
-    fh = max(t - mt - ki, 0)
+    fh = int(max(t - mt - ki, 0))
 
     # total amount mapped into userspace (ie mapped an unmapped pages)
     u = m('anonpages') + m('mapped')
@@ -488,19 +582,18 @@ def showsystem():
     # total amount in kernel caches
     kdc = m('buffers') + m('sreclaimable') + (m('cached') - m('mapped'))
 
-    l = [("firmware/hardware", fh, 0), ("kernel image", ki, 0),
+    l = [("firmware/hardware", fh, 0),
+         ("kernel image", ki, 0),
          ("kernel dynamic memory", kd, kdc),
-         ("userspace memory", u, m('mapped')), ("free memory", f, f)]
+         ("userspace memory", u, m('mapped')),
+         ("free memory", f, f)]
 
     fields = dict(
-        order=('Order', lambda n: n, '% 1s', lambda x: '',
-               'hierarchical order'),
+        order=('Order', lambda n: n, '% 1s', lambda x: '', 'hierarchical order'),
         area=('Area', lambda n: l[n][0], '%-24s', lambda x: '', 'memory area'),
         used=('Used', lambda n: l[n][1], '%10a', sum, 'area in use'),
-        cache=('Cache', lambda n: l[n][2], '%10a', sum,
-               'area used as reclaimable cache'),
-        noncache=('Noncache', lambda n: l[n][1] - l[n][2], '%10a', sum,
-                  'area not reclaimable'))
+        cache=('Cache', lambda n: l[n][2], '%10a',  sum, 'area used as reclaimable cache'),
+        noncache=('Noncache', lambda n: l[n][1] - l[n][2], '%10a', sum, 'area not reclaimable'))
 
     columns = options.columns or 'area used cache noncache'
     showtable(
@@ -577,6 +670,7 @@ def showtable(rows, fields, columns, sort):
     for n in columns:
         f = fields[n][2]
         if 'a' in f:
+
             if n == 'swap':
                 formatter.append(lambda x: showamount(x, st))
             else:
@@ -594,7 +688,7 @@ def showtable(rows, fields, columns, sort):
         r = [fields[c][1](n) for c in columns]
         l.append((fields[sort][1](n), r))
 
-    l.sort(reverse=bool(options.reverse))
+    l.sort(reverse= bool(options.reverse))
 
     if not options.no_header:
         print(header)
@@ -646,7 +740,8 @@ def parse_arguments(argv=None):
             help="Size columns to fit terminal size")
 
     argparser.add_argument('-R', '--realmem',
-            action='store_true',
+            default=None,
+            type=str,
             help="Amount of physical RAM")
 
     argparser.add_argument('-K', '--kernel',
@@ -682,6 +777,10 @@ def parse_arguments(argv=None):
     show_group.add_argument('-w', '--system',
             action='store_true',
             help="Show whole system")
+
+    show_group.add_argument('-g', '--groupcmd',
+            action='store_true',
+            help="Show grouped commands")
 
     show_group.add_argument('-p', '--percent',
             action='store_true',
@@ -730,10 +829,10 @@ def parse_arguments(argv=None):
             type=int,
             help="Text width for mapping names (0=as needed)")
 
-    argparser.add_argument('-S', '--source',
-            default=None,
-            type=str,
-            help="/proc data source")
+#    argparser.add_argument('-S', '--source',
+#            default=None,
+#            type=str,
+#            help="/proc data source")
 
     return argparser.parse_args()
 
@@ -746,20 +845,34 @@ def main():
     global options
     global proc
 
+    global SWAPPSS
+
+
     options = parse_arguments(sys.argv)
     ignore_autosize = set()
 
     proc = ProcessData()
 
+    map=pidmaps(os.getpid(), rollup=True)
+    map=map[list(map.keys())[0]]
+    if not 'pss' in map:
+        print("Warning: Kernel does not appear to support PSS measurement")
+    if 'swappss' in map:
+        SWAPPSS=True
+    else:
+        SWAPPSS=False
+        print("Warning: Kernel does not appear to support SwapPSS measurement")
     try:
         if options.mappings:
             showmaps()
         elif options.users:
-            showusers()
+            showusers(rollup = not options.mapfilter)
         elif options.system:
             showsystem()
+        elif options.groupcmd:
+            showcmds(rollup = not options.mapfilter)
         else:
-            showpids()
+            showpids(rollup = not options.mapfilter)
     except IOError as e:
         if e.errno == errno.EPIPE:
             pass
@@ -769,3 +882,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
