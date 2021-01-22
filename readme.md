@@ -1,14 +1,15 @@
 # smem
 
-**I did not make this software - just will try to improve it**
+**I did not make this software - just trying to improve it**
 
-ToDo:
- * add support for proc/pid/smaps_rollup (big speed boost for nonmaping part)
- * add SwapPss
- * add group by command mode - same executables grouped together
- * add TPss column - Pss + SwapPss
- * exclude own process from output
-  
+ * fixed -M filter filter
+ * fixed -R option not accepting argument
+ * added support for proc/pid/smaps_rollup (big speed boost for nonmapping part)
+ * added SwapPss column
+ * added TPss column - Pss + SwapPss
+ * added group by command mode - same executables grouped together
+ * removed unneeded --source option
+ * excluded own process from output
 
 
 [smem](http://www.selenic.com/smem/) is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem can report proportional set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual memory system.
