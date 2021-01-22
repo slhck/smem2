@@ -360,7 +360,6 @@ def fromunits(x):
 
 
 def showamount(a, total):
-    #if not isinstance(a, int): return a
     if options.abbreviate:
         return units(a * 1024)
     elif options.percent:
@@ -451,7 +450,7 @@ def showmaps():
              'virtual set size (total virtual address space mapped)'),
         avgpss=('AVGPSS', lambda n: int(1.0 * pt[n]['pss'] / pt[n]['pids']),
                 '% 8a', sum, 'average PSS per PID'),
-        avguss=('AVGUSS', lambda n: int(1.0 * pt[n]['uss'] / pt[n]['pids']),
+        avguss=('AVGUSS', lambda n: int(1.0 * (pt[n]['private_clean'] + pt[n]['private_dirty']) / pt[n]['pids']),
                 '% 8a', sum, 'average USS per PID'),
         avgrss=('AVGRSS', lambda n: int(1.0 * pt[n]['rss'] / pt[n]['pids']),
                 '% 8a', sum, 'average RSS per PID'),
@@ -847,21 +846,26 @@ def main():
 
     global SWAPPSS
 
-
     options = parse_arguments(sys.argv)
     ignore_autosize = set()
 
     proc = ProcessData()
 
+    mf=options.mapfilter                    # nasty workaround, -M redirect pidmaps()
+    options.mapfilter=False
     map=pidmaps(os.getpid(), rollup=True)
     map=map[list(map.keys())[0]]
+    options.mapfilter=mf
+
+    if not 'size' in map:
+        sys.stderr.write("Warning: Kernel smaps_rollup does not support VSS measurement\n")
     if not 'pss' in map:
-        print("Warning: Kernel does not appear to support PSS measurement")
+        sys.stderr.write("Warning: Kernel does not appear to support PSS measurement\n")
     if 'swappss' in map:
         SWAPPSS=True
     else:
         SWAPPSS=False
-        print("Warning: Kernel does not appear to support SwapPSS measurement")
+        sys.stderr.write("Warning: Kernel does not appear to support SwapPSS measurement\n")
     try:
         if options.mappings:
             showmaps()
