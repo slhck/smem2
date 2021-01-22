@@ -162,8 +162,7 @@ def pidmaps(pid):
     if options.mapfilter:
         f = {}
         for m in maps:
-            if not list(
-                    filters(options.mapfilter, m, lambda x: maps[x]['name'])):
+            if not filters(options.mapfilter, m, lambda x: maps[x]['name']):
                 f[m] = maps[m]
         return f
     return maps
