@@ -89,13 +89,12 @@ class ProcessData(Proc):
         return os.stat("/proc/" + pid)
 
     def pids(self):
-        """Get a list of PID's"""
-        op=os.getpid()                                                                          # exclude own process
-        return [int(e) for e in self.listdir() if e.isdigit() and not self._iskernel(e) and not int(e) == op]  
+        """Get a list of PID's"""                                                                          # exclude own process when processfilter
+        return [int(e) for e in self.listdir() if e.isdigit() and not self._iskernel(e) and not ((int(e) == OWNPID) and options.processfilter)] 
 
-    def mapdata(self, pid, rollup=False):
+    def mapdata(self, pid):
         """Return PID smaps data"""
-        if rollup:
+        if ROLLUP:
             try:
                 return self.readlines('%s/smaps_rollup' % pid)                                  # smaps_rollup new from kernel 4.14, at least 7x faster for non maping listing
             except Exception:
@@ -126,20 +125,13 @@ class ProcessData(Proc):
         return self.username(self.piduser(pid))
 
 
-def totalmem():
-    if options.realmem:
-        return fromunits(options.realmem) / 1024
-    else:
-        memdata = MemData()
-        return memdata('memtotal')
 
-
-def pidmaps(pid, rollup=False):
+def pidmaps(pid):
     maps = {}
     start = None
     seen = False
     empty = True
-    for l in proc.mapdata(pid, rollup):
+    for l in proc.mapdata(pid):
         empty = False
         f = l.split()
         if f[-1] == 'kB':
@@ -157,7 +149,12 @@ def pidmaps(pid, rollup=False):
                 device=f[3],
                 inode=f[4],
                 name=name)
-
+    if not 'size:' in maps[start]:             # no VSS info in smem_rollup
+        for l in proc.readlines('%s/status' % pid):
+            l = l.split() 
+            if l[0] == 'VmSize:':
+                maps[start]['size']=int(l[1])
+                break
     if options.mapfilter:
         f = {}
         for m in maps:
@@ -206,8 +203,8 @@ def maptotals(pids):
     return totals
 
 
-def pidtotals(pid, rollup):
-    maps = pidmaps(pid, rollup)
+def pidtotals(pid):
+    maps = pidmaps(pid)
     t = dict(
         size=0,
         rss=0,
@@ -231,14 +228,14 @@ def pidtotals(pid, rollup):
     return t
 
 
-def usertotals(pids, rollup):
+def usertotals(pids):
     totals = {}
     for pid in pids:
         if (filters(options.processfilter, pid, proc.pidcmd)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
-            maps = pidmaps(pid, rollup)
+            maps = pidmaps(pid)
             if len(maps) == 0:
                 continue
         except EnvironmentError:
@@ -269,14 +266,14 @@ def usertotals(pids, rollup):
         totals[user] = t
     return totals
 
-def processtotals(pids, rollup):
+def processtotals(pids):
     totals = {}
     for pid in pids:
         if (filters(options.processfilter, pid, proc.pidcmd)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
-            p = pidtotals(pid, rollup)
+            p = pidtotals(pid)
             if p['maps'] != 0:
                 totals[pid] = p
         except:
@@ -284,14 +281,14 @@ def processtotals(pids, rollup):
     return totals
 
 
-def cmdtotals(pids, rollup):  # GdH
+def cmdtotals(pids):
     totals = {}
     for pid in pids:
         if (filters(options.processfilter, pid, proc.pidcmd)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
-            pt = pidtotals(pid, rollup)
+            pt = pidtotals(pid)
             cmd = proc.pidcmd(pid).split()[0]
             
             if cmd not in totals:
@@ -389,9 +386,9 @@ def widthstr(field, width, default):
     return '%-{size}.{size}s'.format(size=size)
 
 
-def showpids(rollup):
+def showpids():
     p = proc.pids()
-    pt = processtotals(p, rollup)
+    pt = processtotals(p)
     def showuser(p):
         if options.numeric:
             return proc.piduser(p)
@@ -466,9 +463,9 @@ def showmaps():
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
 
-def showusers(rollup):
+def showusers():
     p = proc.pids()
-    pt = usertotals(p, rollup)
+    pt = usertotals(p)
 
     def showuser(u):
         if options.numeric:
@@ -505,9 +502,9 @@ def showusers(rollup):
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
 
-def showcmds(rollup):
+def showcmds():
     p = proc.pids()
-    pt= cmdtotals(p, rollup)
+    pt= cmdtotals(p)
 
     fields = dict(
         command=('Command', lambda n: n,
@@ -536,41 +533,59 @@ def showcmds(rollup):
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
+def totalmem():
+    if options.realmem:
+        return fromunits(options.realmem) / 1024
+    else:
+        try:
+            # GdH - don't know where to read this information in /sys
+            ram=os.popen('dmidecode --type memory 2> /dev/null|awk \'/Size: [0-9]+ MB/{sum+=$2};END{print sum}\'',).read().strip()
+            if ram.isdigit():
+                return fromunits( str(int(ram))+"M") / 1024
+        except:
+            pass
+
+        return MemData()('memtotal')
+        
 
 def kernelsize():
-    kernelsize = 0
+    kernelsize=0
     if not kernelsize and options.kernel:
         try:
-            d = os.popen("size %s" % options.kernel).readlines()[1]
-            kernelsize = int(d.split()[3]) / 1024
-        except:
-            try:
+            d = os.popen("size %s" % options.kernel).readlines()[1].split()
+            if int(d[1]) == 0: # data part missing, seems like packed file
                 # try some heuristic to find gzipped part in kernel image
-                packedkernel = open(options.kernel).read()
-                pos = packedkernel.find('\x1F\x8B')
+                packedkernel = open(options.kernel, "rb").read()
+                pos = packedkernel.find(b'\x1F\x8B')
                 if pos >= 0 and pos < 25000:
-                    sys.stderr.write(
-                        "Maybe uncompressed kernel can be extracted by the command:\n"
-                        "  dd if=%s bs=1 skip=%d | gzip -d >%s.unpacked\n\n" %
-                        (options.kernel, pos, options.kernel))
-            except:
-                pass
-            sys.stderr.write(
-                "Parameter '%s' should be an original uncompressed compiled kernel file.\n\n"
-                % options.kernel)
+                    sys.stderr.write("Parameter '%s' should be an original uncompressed compiled kernel file.\n" % options.kernel)
+                    sys.stderr.write("Maybe uncompressed kernel can be extracted by the command:\n"
+                                "  dd if=%s bs=1 skip=%d | gzip -d >%s.unpacked\n\n" % (options.kernel, pos, options.kernel))
+            else:
+                kernelsize = int(d[3]) / 1024
+        except:
+            pass
     return kernelsize
 
+def kernel_modules_size():
+    ms=0
+    try:
+        ms = os.popen ("awk '{sum+=$2};END{printf \"%d\",sum/1024}' /proc/modules").read()
+    except:
+        pass
+    return int(ms)
 
 def showsystem():
     t = totalmem()
     ki = kernelsize()
+    km = kernel_modules_size()
     m = MemData()
 
     mt = m('memtotal')
     f = m('memfree')
 
     # total amount used by hardware
-    fh = int(max(t - mt - ki, 0))
+    fh = int(max(t - mt - ki - km, 0))
 
     # total amount mapped into userspace (ie mapped an unmapped pages)
     u = m('anonpages') + m('mapped')
@@ -583,6 +598,7 @@ def showsystem():
 
     l = [("firmware/hardware", fh, 0),
          ("kernel image", ki, 0),
+         ("kernel modules", km, 0),
          ("kernel dynamic memory", kd, kdc),
          ("userspace memory", u, m('mapped')),
          ("free memory", f, f)]
@@ -844,21 +860,29 @@ def main():
     global options
     global proc
 
+    # constants
+    global OWNPID
     global SWAPPSS
+    global ROLLUP
+
+    OWNPID=os.getpid()
 
     options = parse_arguments(sys.argv)
     ignore_autosize = set()
 
     proc = ProcessData()
 
-    mf=options.mapfilter                    # nasty workaround, -M redirect pidmaps()
+    ROLLUP = True
+    mf=options.mapfilter                    # GdH: workaround, -M redirect pidmaps()
     options.mapfilter=False
-    map=pidmaps(os.getpid(), rollup=True)
+    map=pidmaps(OWNPID)
     map=map[list(map.keys())[0]]
     options.mapfilter=mf
+    if options.mapfilter or options.mappings:
+        ROLLUP = False
 
-    if not 'size' in map:
-        sys.stderr.write("Warning: Kernel smaps_rollup does not support VSS measurement\n")
+#    if not 'size' in map:
+#        sys.stderr.write("Warning: Kernel smaps_rollup does not support VSS measurement\n")
     if not 'pss' in map:
         sys.stderr.write("Warning: Kernel does not appear to support PSS measurement\n")
     if 'swappss' in map:
@@ -868,15 +892,16 @@ def main():
         sys.stderr.write("Warning: Kernel does not appear to support SwapPSS measurement\n")
     try:
         if options.mappings:
+            ROLLUP=False
             showmaps()
         elif options.users:
-            showusers(rollup = not options.mapfilter)
+            showusers()
         elif options.system:
             showsystem()
         elif options.groupcmd:
-            showcmds(rollup = not options.mapfilter)
+            showcmds()
         else:
-            showpids(rollup = not options.mapfilter)
+            showpids()
     except IOError as e:
         if e.errno == errno.EPIPE:
             pass
