@@ -1,7 +1,8 @@
 # smem
 
 **I did not make this software - just trying to improve it**
-\<G-dH\>
+
+\<GdH\>
  * added support for proc/pid/smaps_rollup (big speed boost for nonmapping part)
  * added SwapPss column
  * added TPss column - Pss + SwapPss
@@ -15,7 +16,7 @@
  * fixed AVGUSS - KeyError: 'uss'
  * removed unneeded --source option
 
-\</G-dH\>
+\</GdH\>
 
 [smem](http://www.selenic.com/smem/) is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem can report proportional set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual memory system.
 
