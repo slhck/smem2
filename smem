@@ -129,7 +129,6 @@ class ProcessData(Proc):
 def pidmaps(pid):
     maps = {}
     start = None
-    seen = False
     empty = True
     for l in proc.mapdata(pid):
         empty = False
@@ -570,7 +569,7 @@ def kernelsize():
 def kernel_modules_size():
     ms=0
     try:
-        ms = os.popen ("awk '{sum+=$2};END{printf \"%d\",sum/1024}' /proc/modules").read()
+        ms = os.popen ("cut -f1 -d ' ' </proc/modules | xargs modinfo | grep filename | grep -o '/.*' | xargs size | awk '/[0-9]/{sum+=$4};END{printf \"%d\",sum/1024}'").read()
     except:
         pass
     return int(ms)
@@ -876,13 +875,11 @@ def main():
     mf=options.mapfilter                    # GdH: workaround, -M redirect pidmaps()
     options.mapfilter=False
     map=pidmaps(OWNPID)
-    map=map[list(map.keys())[0]]
+    map=map[list(map.keys())[0]]            # GdH: for kernel features detection
     options.mapfilter=mf
     if options.mapfilter or options.mappings:
         ROLLUP = False
 
-#    if not 'size' in map:
-#        sys.stderr.write("Warning: Kernel smaps_rollup does not support VSS measurement\n")
     if not 'pss' in map:
         sys.stderr.write("Warning: Kernel does not appear to support PSS measurement\n")
     if 'swappss' in map:
