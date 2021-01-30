@@ -316,7 +316,6 @@ def cmdtotals(pids):
             continue
     return totals
 
-
 def sortmaps(totals, key):
     l = []
     for pid in totals:
@@ -450,6 +449,8 @@ def showmaps():
                 '% 8a', sum, 'average USS per PID'),
         avgrss=('AVGRSS', lambda n: int(1.0 * pt[n]['rss'] / pt[n]['pids']),
                 '% 8a', sum, 'average RSS per PID'),
+        avgvss=('AVGVSS', lambda n: int(1.0 * pt[n]['size'] / pt[n]['pids']),
+                '% 8a', sum, 'average VSS per PID'),
     )
 
     if SWAPPSS:
@@ -536,13 +537,14 @@ def totalmem():
     if options.realmem:
         return fromunits(options.realmem) / 1024
     else:
-        try:
-            # GdH - don't know where to read this information in /sys
-            ram=os.popen('dmidecode --type memory 2> /dev/null|awk \'/Size: [0-9]+ MB/{sum+=$2};END{print sum}\'',).read().strip()
-            if ram.isdigit():
-                return fromunits( str(int(ram))+"M") / 1024
-        except:
-            pass
+        if options.system:
+            try:
+                # GdH - don't know where to read this information in /sys
+                ram=os.popen('dmidecode --type memory 2> /dev/null|awk \'/Size: [0-9]+ MB/{sum+=$2};END{print sum}\'',).read().strip()
+                if ram.isdigit():
+                    return fromunits( str(int(ram))+"M") / 1024
+            except:
+                pass
 
         return MemData()('memtotal')
         
@@ -561,7 +563,7 @@ def kernelsize():
                     sys.stderr.write("Maybe uncompressed kernel can be extracted by the command:\n"
                                 "  dd if=%s bs=1 skip=%d | gzip -d >%s.unpacked\n\n" % (options.kernel, pos, options.kernel))
             else:
-                kernelsize = int(d[3]) / 1024
+                kernelsize = int(int(d[3]) / 1024 +0.5)
         except:
             pass
     return kernelsize
@@ -571,26 +573,26 @@ def kernel_modules_size():
     try:
         ms = os.popen ("cut -f1 -d ' ' </proc/modules | xargs modinfo | grep filename | grep -o '/.*' | xargs size | awk '/[0-9]/{sum+=$4};END{printf \"%d\",sum/1024}'").read()
     except:
-        pass
+        sys.stderr.write("Detection of kernel modules size failed\n")
     return int(ms)
 
 def showsystem():
-    t = totalmem()
+    t  = totalmem()
     ki = kernelsize()
     km = kernel_modules_size()
-    m = MemData()
+    m  = MemData()
 
     mt = m('memtotal')
-    f = m('memfree')
+    f  = m('memfree')
 
     # total amount used by hardware
-    fh = int(max(t - mt - ki - km, 0))
+    fh = int(max(t - mt - ki, 0))
 
     # total amount mapped into userspace (ie mapped an unmapped pages)
-    u = m('anonpages') + m('mapped')
+    u  = m('anonpages') + m('mapped')
 
     # total amount allocated by kernel not for userspace
-    kd = mt - f - u
+    kd = mt - f - u - km    # GdH: as I undestand, kernel modules are part of kernel dynamic memory
 
     # total amount in kernel caches
     kdc = m('buffers') + m('sreclaimable') + (m('cached') - m('mapped'))
@@ -853,7 +855,6 @@ def parse_arguments(argv=None):
 
 def main():
     """Main function for smem"""
-
     # TODO Remove the necessity of globals, this is a temporary workaround until functions have been updated
     global ignore_autosize
     global options
@@ -864,22 +865,22 @@ def main():
     global SWAPPSS
     global ROLLUP
 
-    OWNPID=os.getpid()
-
     options = parse_arguments(sys.argv)
+
     ignore_autosize = set()
 
     proc = ProcessData()
 
+    OWNPID=os.getpid()
+
     ROLLUP = True
-    mf=options.mapfilter                    # GdH: workaround, -M redirect pidmaps()
-    options.mapfilter=False
-    map=pidmaps(OWNPID)
-    map=map[list(map.keys())[0]]            # GdH: for kernel features detection
-    options.mapfilter=mf
+    mf = options.mapfilter                    # GdH: workaround, -M redirect pidmaps()
+    options.mapfilter = False
+    map = pidmaps(OWNPID)
+    map = map[list(map.keys())[0]]            # GdH: for kernel features detection
+    options.mapfilter = mf
     if options.mapfilter or options.mappings:
         ROLLUP = False
-
     if not 'pss' in map:
         sys.stderr.write("Warning: Kernel does not appear to support PSS measurement\n")
     if 'swappss' in map:
@@ -887,9 +888,9 @@ def main():
     else:
         SWAPPSS=False
         sys.stderr.write("Warning: Kernel does not appear to support SwapPSS measurement\n")
+
     try:
         if options.mappings:
-            ROLLUP=False
             showmaps()
         elif options.users:
             showusers()
