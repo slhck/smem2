@@ -151,7 +151,7 @@ def pidmaps(pid):
         if f[-1] == 'kB':
             maps[start][f[0][:-1].lower()] = int(f[1])
         elif '-' in f[0] and ':' not in f[0]:  # looks like a mapping range
-            start, end = f[0].split('-')  
+            start, end = f[0].split('-')
             start = int(start, 16)
             name = "<anonymous>"
             if len(f) > 5:
@@ -163,7 +163,7 @@ def pidmaps(pid):
                 device=f[3],
                 inode=f[4],
                 name=name)
-    if not 'size:' in maps[start]:             # no VSS info in smem_rollup
+    if not 'size:' in maps[start]:             # no VSS info in smaps_rollup
         for l in proc.readlines('%s/status' % pid):
             l = l.split() 
             if l[0] == 'VmSize:':
@@ -570,8 +570,9 @@ def kernelsize():
             pass
     return kernelsize
 
-def kernel_modules_size():
-    ms=0
+def kernelmodsize():
+    """ Kernel modules size as part of kernel dynamic memory"""
+    ms = 0
     try:
         ms = os.popen ("cut -f1 -d ' ' </proc/modules | xargs modinfo | grep filename | grep -o '/.*' | xargs size | awk '/[0-9]/{sum+=$4};END{printf \"%d\",sum/1024}'").read()
     except:
@@ -581,7 +582,7 @@ def kernel_modules_size():
 def showsystem():
     t  = totalmem()
     ki = kernelsize()
-    km = kernel_modules_size()
+    km = kernelmodsize()
     m  = MemData()
 
     mt = m('memtotal')
@@ -594,7 +595,7 @@ def showsystem():
     u  = m('anonpages') + m('mapped')
 
     # total amount allocated by kernel not for userspace
-    kd = mt - f - u - km    # kernel modules are part of kernel dynamic memory
+    kd = mt - f - u - km
 
     # total amount in kernel caches
     kdc = m('buffers') + m('sreclaimable') + (m('cached') - m('mapped'))
@@ -706,7 +707,7 @@ def showtable(rows, fields, columns, sort):
         r = [fields[c][1](n) for c in columns]
         l.append((fields[sort][1](n), r))
 
-    l.sort(reverse= bool(options.reverse))
+    l.sort(reverse = bool(options.reverse))
 
     if not options.no_header:
         print(header)
@@ -875,11 +876,12 @@ def main():
 
     OWNPID=os.getpid()
 
+    """ New kernel features detection """
     ROLLUP = True
-    mf = options.mapfilter                    # GdH: workaround, -M redirect pidmaps()
+    mf = options.mapfilter                    # workaround, -M redirects pidmaps()
     options.mapfilter = False
     map = pidmaps(OWNPID)
-    map = map[list(map.keys())[0]]            # GdH: kernel features detection
+    map = map[list(map.keys())[0]]
     options.mapfilter = mf
     if options.mapfilter or options.mappings:
         ROLLUP = False
