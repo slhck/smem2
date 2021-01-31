@@ -14,6 +14,7 @@ GdH:
  * fixed -K option - kernel compression detection
  * fixed AVGUSS - KeyError: 'uss'
  * removed unneeded --source option
+
 /GdH
 
 **I did not make this software, I merely edited it for Python 3 compatibility**
