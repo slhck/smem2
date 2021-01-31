@@ -125,6 +125,21 @@ class ProcessData(Proc):
         return self.username(self.piduser(pid))
 
 
+def totalmem():
+    if options.realmem:
+        return fromunits(options.realmem) / 1024
+    else:
+        if options.system:
+            try:
+                # GdH - don't know where to read this information in /sys
+                ram=os.popen('dmidecode --type memory 2> /dev/null|awk \'/Size: [0-9]+ MB/{sum+=$2};END{print sum}\'',).read().strip()
+                if ram.isdigit():
+                    return fromunits( str(int(ram))+"M") / 1024
+            except:
+                pass
+
+        return MemData()('memtotal')
+
 
 def pidmaps(pid):
     maps = {}
@@ -265,20 +280,6 @@ def usertotals(pids):
         totals[user] = t
     return totals
 
-def processtotals(pids):
-    totals = {}
-    for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd)
-                or filters(options.userfilter, pid, proc.pidusername)):
-            continue
-        try:
-            p = pidtotals(pid)
-            if p['maps'] != 0:
-                totals[pid] = p
-        except:
-            continue
-    return totals
-
 
 def cmdtotals(pids):
     totals = {}
@@ -373,6 +374,21 @@ def filters(opt, arg, *sources):
     return True
 
 
+def processtotals(pids):
+    totals = {}
+    for pid in pids:
+        if (filters(options.processfilter, pid, proc.pidcmd)
+                or filters(options.userfilter, pid, proc.pidusername)):
+            continue
+        try:
+            p = pidtotals(pid)
+            if p['maps'] != 0:
+                totals[pid] = p
+        except:
+            continue
+    return totals
+
+
 def widthstr(field, width, default):
     if width == 0:
         return '%s'
@@ -387,6 +403,7 @@ def widthstr(field, width, default):
 def showpids():
     p = proc.pids()
     pt = processtotals(p)
+
     def showuser(p):
         if options.numeric:
             return proc.piduser(p)
@@ -533,24 +550,9 @@ def showcmds():
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
-def totalmem():
-    if options.realmem:
-        return fromunits(options.realmem) / 1024
-    else:
-        if options.system:
-            try:
-                # GdH - don't know where to read this information in /sys
-                ram=os.popen('dmidecode --type memory 2> /dev/null|awk \'/Size: [0-9]+ MB/{sum+=$2};END{print sum}\'',).read().strip()
-                if ram.isdigit():
-                    return fromunits( str(int(ram))+"M") / 1024
-            except:
-                pass
-
-        return MemData()('memtotal')
-        
 
 def kernelsize():
-    kernelsize=0
+    kernelsize = 0
     if not kernelsize and options.kernel:
         try:
             d = os.popen("size %s" % options.kernel).readlines()[1].split()
@@ -592,7 +594,7 @@ def showsystem():
     u  = m('anonpages') + m('mapped')
 
     # total amount allocated by kernel not for userspace
-    kd = mt - f - u - km    # GdH: as I undestand, kernel modules are part of kernel dynamic memory
+    kd = mt - f - u - km    # kernel modules are part of kernel dynamic memory
 
     # total amount in kernel caches
     kdc = m('buffers') + m('sreclaimable') + (m('cached') - m('mapped'))
@@ -877,7 +879,7 @@ def main():
     mf = options.mapfilter                    # GdH: workaround, -M redirect pidmaps()
     options.mapfilter = False
     map = pidmaps(OWNPID)
-    map = map[list(map.keys())[0]]            # GdH: for kernel features detection
+    map = map[list(map.keys())[0]]            # GdH: kernel features detection
     options.mapfilter = mf
     if options.mapfilter or options.mappings:
         ROLLUP = False
