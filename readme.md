@@ -5,11 +5,13 @@ GdH:
  * added support for *proc/pid/smaps_rollup* (big speed boost for nonmapping part)
  * added *SwapPss, RssAnon, RssFile, RssShmem, PssAnon, PssFile, PssShmem, AvgVss* columns when supported by kernel
  * added *TPss* column = *Pss* + *SwapPss*
- * added group by command mode *-g* / *groupcmd* - same executables grouped together
+ * added *Comm* column (process name) to process view
+ * added group by command view *-g* / *groupcmd* - same executables grouped together
  * added *-b* / *--basename* option: show only name of executables instead of path / full command 
  * added physical RAM size detection via *dmidecode* in system overview
  * added kernel modules size in system overview
- * added *-P* process filter can filter by *PID*
+ * added *-P* process filter can filter by *PID* and name (comm)
+ * added *-i* option for case insensitive search
  * excluded own process from *-P* filtered output
  * fixed -M filter
  * fixed -R option not accepting argument

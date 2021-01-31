@@ -130,6 +130,11 @@ class ProcessData(Proc):
     def pidtostr(self, pid):
         return str(pid)
 
+    def pidname(self, pid):
+        """Return PID comm data"""
+        c = self.read('%s/comm' % pid)[:-1]
+        return c
+
 
 def totalmem():
     if options.realmem:
@@ -194,7 +199,7 @@ def pidmaps(pid, nomaps=False):
 def maptotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr, proc.pidname)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -266,7 +271,7 @@ def pidtotals(pid):
 def usertotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr, proc.pidname)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -305,7 +310,7 @@ def usertotals(pids):
 def cmdtotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr, proc.pidname)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -397,7 +402,7 @@ def filters(opt, arg, *sources):
     if not opt:
         return False
     for f in sources:
-        if re.search(opt, f(arg)):
+        if re.search(opt, f(arg), re.I if options.ignorecase else 0):
             return False
     return True
 
@@ -405,7 +410,7 @@ def filters(opt, arg, *sources):
 def processtotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr, proc.pidname)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -444,6 +449,9 @@ def showpids():
         command=('Command', proc.pidcmd,
                  widthstr('command', options.cmd_width, 27), None,
                  'process command line'),
+        comm=('Comm', proc.pidname,
+                 widthstr('comm', options.cmd_width, 16), None,
+                 'process name'),
         maps=('Maps', lambda n: pt[n]['maps'], '% 5s', sum,
               'total number of mappings'),
         swap=('Swap', lambda n: pt[n]['swap'], '% 8a', sum,
@@ -841,6 +849,10 @@ def parse_arguments(argv=None):
             default=None,
             type=str,
             help="Process users regex")
+
+    argparser.add_argument('-i', '--ignorecase',
+            action='store_true',
+            help="Case insensitive filter")
 
     show_group = argparser.add_argument_group('Show')
     show_group.add_argument('-m', '--mappings',
