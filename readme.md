@@ -2,19 +2,20 @@
 
 GdH:
 
- * added support for proc/pid/smaps_rollup (big speed boost for nonmapping part)
- * added SwapPss column
- * added TPss column - Pss + SwapPss
- * added group by command mode -g - same executables grouped together
- * added physical RAM size detection via dmidecode
- * added kernel modules size in system view
- * excluded own process from -P filtered output
+ * added support for *proc/pid/smaps_rollup* (big speed boost for nonmapping part)
+ * added *SwapPss, RssAnon, RssFile, RssShmem, PssAnon, PssFile, PssShmem, AvgVss* columns when supported by kernel
+ * added *TPss* column = *Pss* + *SwapPss*
+ * added group by command mode *-g* / *groupcmd* - same executables grouped together
+ * added *-b* / *--basename* option: show only name of executables instead of path / full command 
+ * added physical RAM size detection via *dmidecode* in system overview
+ * added kernel modules size in system overview
+ * added *-P* process filter can filter by *PID*
+ * excluded own process from *-P* filtered output
  * fixed -M filter
  * fixed -R option not accepting argument
  * fixed -K option - kernel compression detection
  * fixed AVGUSS - KeyError: 'uss'
- * removed unneeded --source option
-
+ 
 /GdH
 
 **I did not make this software, I merely edited it for Python 3 compatibility**

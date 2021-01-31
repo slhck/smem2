@@ -105,7 +105,10 @@ class ProcessData(Proc):
         """Return PID cmdline data"""
         try:
             c = self.read('%s/cmdline' % pid)[:-1]
-            return c.replace('\0', ' ')
+            c = c.replace('\0', ' ')
+            if options.basename and not c == "":
+                c = os.path.basename(c.split()[0])
+            return c
         except:
             return '?'
 
@@ -123,6 +126,9 @@ class ProcessData(Proc):
     def pidusername(self, pid):
         """Return PID username"""
         return self.username(self.piduser(pid))
+
+    def pidtostr(self, pid):
+        return str(pid)
 
 
 def totalmem():
@@ -145,6 +151,7 @@ def pidmaps(pid, nomaps=False):
     maps = {}
     start = None
     empty = True
+    if ROLLUP: status = proc.readlines('%s/status' % pid)
     for l in proc.mapdata(pid):
         empty = False
         f = l.split()
@@ -163,12 +170,19 @@ def pidmaps(pid, nomaps=False):
                 device=f[3],
                 inode=f[4],
                 name=name)
-    if not 'size:' in maps[start]:             # no VSS info in smaps_rollup
-        for l in proc.readlines('%s/status' % pid):
+    if ROLLUP:             # no VSS info in smaps_rollup
+        for l in status:
             l = l.split() 
             if l[0] == 'VmSize:':
                 maps[start]['size']=int(l[1])
+            if PSSDETAIL and l[0] == 'RssAnon:':
+                maps[start]['rss_anon']=int(l[1])
+            if PSSDETAIL and l[0] == 'RssFile:':
+                maps[start]['rss_file']=int(l[1])
+            if PSSDETAIL and l[0] == 'RssShmem:':
+                maps[start]['rss_shmem']=int(l[1])
                 break
+
     if options.mapfilter and not nomaps:
         f = {}
         for m in maps:
@@ -180,7 +194,7 @@ def pidmaps(pid, nomaps=False):
 def maptotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -231,6 +245,13 @@ def pidtotals(pid):
         swap=0)
     if SWAPPSS:
         t['swappss']=0
+    if PSSDETAIL:
+        t['pss_anon']=0
+        t['pss_file']=0
+        t['pss_shmem']=0
+        t['rss_anon']=0
+        t['rss_file']=0
+        t['rss_shmem']=0
 
     for m in list(maps.keys()):
         for k in t:
@@ -245,7 +266,7 @@ def pidtotals(pid):
 def usertotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -284,7 +305,7 @@ def usertotals(pids):
 def cmdtotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -306,6 +327,13 @@ def cmdtotals(pids):
                     pids=0)
                 if SWAPPSS:
                     t['swappss']=0
+                if PSSDETAIL:
+                    t['pss_anon']=0
+                    t['pss_file']=0
+                    t['pss_shmem']=0
+                    t['rss_anon']=0
+                    t['rss_file']=0
+                    t['rss_shmem']=0
             else:
                 t = totals[cmd]
             for k in t:
@@ -377,7 +405,7 @@ def filters(opt, arg, *sources):
 def processtotals(pids):
     totals = {}
     for pid in pids:
-        if (filters(options.processfilter, pid, proc.pidcmd)
+        if (filters(options.processfilter, pid, proc.pidcmd, proc.pidtostr)
                 or filters(options.userfilter, pid, proc.pidusername)):
             continue
         try:
@@ -434,6 +462,19 @@ def showpids():
               'proportional amount of swap space consumed')
         fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
              'Total virtual memory used (Pss + SwapPss)')
+    if PSSDETAIL:
+        fields['pssa']=('PssAnon', lambda n: pt[n]['pss_anon'], '% 8a', sum,
+             'proportional set size of anonymous memory (including sharing)')
+        fields['pssf']=('PssFile', lambda n: pt[n]['pss_file'], '% 8a', sum,
+             'proportional set size of files (including sharing)')
+        fields['psss']=('PssShmem', lambda n: pt[n]['pss_shmem'], '% 8a', sum,
+             'proportional set size of shared memory (including sharing)')
+        fields['rssa']=('RssAnon', lambda n: pt[n]['rss_anon'], '% 8a', sum,
+             'proportional set size of anonymous memory (ignoring sharing)')
+        fields['rssf']=('RssFile', lambda n: pt[n]['rss_file'], '% 8a', sum,
+             'proportional set size of files (including sharing)')
+        fields['rsss']=('RssShmem', lambda n: pt[n]['rss_shmem'], '% 8a', sum,
+             'proportional set size of shared memory (ignoring sharing)')
 
     columns = options.columns or 'pid user command swap uss pss rss'
 
@@ -545,6 +586,19 @@ def showcmds():
               'proportional amount of swap space consumed')
         fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
              'Total virtual memory used (Pss + SwapPss)')
+    if PSSDETAIL:
+        fields['pssa']=('PssAnon', lambda n: pt[n]['pss_anon'], '% 8a', sum,
+             'proportional set size of anonymous memory (including sharing)')
+        fields['pssf']=('PssFile', lambda n: pt[n]['pss_file'], '% 8a', sum,
+             'proportional set size of files (including sharing)')
+        fields['psss']=('PssShmem', lambda n: pt[n]['pss_shmem'], '% 8a', sum,
+             'proportional set size of shared memory (including sharing)')
+        fields['rssa']=('RssAnon', lambda n: pt[n]['rss_anon'], '% 8a', sum,
+             'proportional set size of anonymous memory (ignoring sharing)')
+        fields['rssf']=('RssFile', lambda n: pt[n]['rss_file'], '% 8a', sum,
+             'proportional set size of files (including sharing)')
+        fields['rsss']=('RssShmem', lambda n: pt[n]['rss_shmem'], '% 8a', sum,
+             'proportional set size of shared memory (ignoring sharing)')
 
     columns = options.columns or 'command pids swap uss pss rss'
 
@@ -768,6 +822,10 @@ def parse_arguments(argv=None):
             type=str,
             help="Path to kernel image")
 
+    argparser.add_argument('-b', '--basename',
+            action='store_true',
+            help="Name of executable instead of full command")
+
     filter_group = argparser.add_argument_group('Filter')
     filter_group.add_argument('-P', '--processfilter',
             default=None,
@@ -867,6 +925,7 @@ def main():
     global OWNPID
     global SWAPPSS
     global ROLLUP
+    global PSSDETAIL
 
     options = parse_arguments(sys.argv)
 
@@ -874,9 +933,10 @@ def main():
 
     proc = ProcessData()
 
-    OWNPID=os.getpid()
+    OWNPID = os.getpid()
 
     """ New kernel features detection """
+    PSSDETAIL=True
     ROLLUP = True
     map = pidmaps(OWNPID, nomaps=True)
     map = map[list(map.keys())[0]]
@@ -890,6 +950,12 @@ def main():
     else:
         SWAPPSS=False
         sys.stderr.write("Warning: Kernel does not appear to support SwapPSS measurement\n")
+
+    if 'pss_anon' in map:
+        PSSDETAIL = True
+    else:
+        PSSDETAIL = False
+        sys.stderr.write("Warning: Kernel does not appear to support Pss/Rss Anon, File, Shmem measurement\n")
 
     try:
         if options.mappings:
