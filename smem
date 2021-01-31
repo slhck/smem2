@@ -141,7 +141,7 @@ def totalmem():
         return MemData()('memtotal')
 
 
-def pidmaps(pid):
+def pidmaps(pid, nomaps=False):
     maps = {}
     start = None
     empty = True
@@ -169,7 +169,7 @@ def pidmaps(pid):
             if l[0] == 'VmSize:':
                 maps[start]['size']=int(l[1])
                 break
-    if options.mapfilter:
+    if options.mapfilter and not nomaps:
         f = {}
         for m in maps:
             if not filters(options.mapfilter, m, lambda x: maps[x]['name']):
@@ -878,11 +878,9 @@ def main():
 
     """ New kernel features detection """
     ROLLUP = True
-    mf = options.mapfilter                    # workaround, -M redirects pidmaps()
-    options.mapfilter = False
-    map = pidmaps(OWNPID)
+    map = pidmaps(OWNPID, nomaps=True)
     map = map[list(map.keys())[0]]
-    options.mapfilter = mf
+
     if options.mapfilter or options.mappings:
         ROLLUP = False
     if not 'pss' in map:
