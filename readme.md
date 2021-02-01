@@ -19,6 +19,9 @@ GdH:
  * fixed AVGUSS - KeyError: 'uss'
  
 
+
+  **Smem usage:**
+
     usage: smem [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-P PROCESSFILTER] [-M MAPFILTER] [-U USERFILTER] [-i] [-m]
                 [-u] [-w] [-g] [-p] [-k] [-t] [-n] [-s SORT] [-r] [--cmd-width CMD_WIDTH] [--name-width NAME_WIDTH]
                 [--user-width USER_WIDTH] [--mapping-width MAPPING_WIDTH]
@@ -52,7 +55,7 @@ GdH:
       -m, --mappings        Show mappings
       -u, --users           Show users
       -w, --system          Show whole system
-      -g, --groupcmd        Show grouped commands
+      -g, --groupcmd        Show procesess grouped by executables
       -p, --percent         Show percentage
       -k, --abbreviate      Show unit suffixes
       -t, --totals          Show totals
