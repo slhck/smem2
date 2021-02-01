@@ -18,6 +18,61 @@ GdH:
  * fixed -K option - kernel compression detection
  * fixed AVGUSS - KeyError: 'uss'
  
+
+    usage: smem [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-P PROCESSFILTER] [-M MAPFILTER] [-U USERFILTER] [-i] [-m]
+                [-u] [-w] [-g] [-p] [-k] [-t] [-n] [-s SORT] [-r] [--cmd-width CMD_WIDTH] [--name-width NAME_WIDTH]
+                [--user-width USER_WIDTH] [--mapping-width MAPPING_WIDTH]
+    
+    smem is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem can report proportional
+    set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual
+    memory system.
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      -H, --no-header       Disable header line
+      -c COLUMNS, --columns COLUMNS
+                            Columns to show
+      -a, --autosize        Size columns to fit terminal size
+      -R REALMEM, --realmem REALMEM
+                            Amount of physical RAM
+      -K KERNEL, --kernel KERNEL
+                            Path to kernel image
+      -b, --basename        Name of executable instead of full command
+      -i, --ignorecase      Case insensitive filter
+    
+    Filter:
+      -P PROCESSFILTER, --processfilter PROCESSFILTER
+                            Process filter regex
+      -M MAPFILTER, --mapfilter MAPFILTER
+                            Process map regex
+      -U USERFILTER, --userfilter USERFILTER
+                            Process users regex
+    
+    Show:
+      -m, --mappings        Show mappings
+      -u, --users           Show users
+      -w, --system          Show whole system
+      -g, --groupcmd        Show grouped commands
+      -p, --percent         Show percentage
+      -k, --abbreviate      Show unit suffixes
+      -t, --totals          Show totals
+    
+    Sort:
+      -n, --numeric         Numeric sort
+      -s SORT, --sort SORT  Field to sort on
+      -r, --reverse         Reverse sort
+    
+    Width:
+      --cmd-width CMD_WIDTH
+                            Text width for commands (0=as needed)
+      --name-width NAME_WIDTH
+                            Text width for command names (0=as needed)
+      --user-width USER_WIDTH
+                            Text width for user names (0=as needed)
+      --mapping-width MAPPING_WIDTH
+                            Text width for mapping names (0=as needed)
+
+
 /GdH
 
 **I did not make this software, I merely edited it for Python 3 compatibility**
