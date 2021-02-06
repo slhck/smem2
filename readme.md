@@ -13,7 +13,7 @@ GdH:
  * added *-T/--totalsonly* print totals only
  * added *-i/--ignorecase* option for case insensitive search
  * added *-W/--sysdetail* option with more detailed view on system memory
- * added */dev/zero* mapping calculation - memory inicialized from /dev/zero can be (wrongly) included as backed by file to *Mapped/Cached* measurement in /proc/MemInfo. Should be treated as anonymous memory and therefore it is now subtracted from *Mapped* measurement as *Mapped* is used to interpret cached part of memory consumed by processes.
+ * added */dev/zero* mapping calculation - memory inicialized from /dev/zero can be (wrongly) included as backed by file to *Mapped/Cached* measurement in /proc/MemInfo. Should be treated as anonymous memory and therefore it is now subtracted from *Mapped* measurement as *Mapped* is used to interpret cached part of the memory consumed by processes.
  * added warnings about missing kernel features
  * added *-q/quiet* option to mute warnings
  * added *-c/--columns* option accept "all" string to use all available columns
