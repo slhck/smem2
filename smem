@@ -156,7 +156,8 @@ def pidmaps(pid, nomaps=False):
     maps = {}
     start = None
     empty = True
-    if ROLLUP or PSSDETAIL:
+    status = None
+    if ROLLUP or PSSDETAIL or RSSDETAIL:
         status = proc.readlines('%s/status' % pid)
 
     for l in proc.mapdata(pid):
@@ -177,16 +178,16 @@ def pidmaps(pid, nomaps=False):
                 device=f[3],
                 inode=f[4],
                 name=name)
-    if ROLLUP or PSSDETAIL:             # no VSS info in smaps_rollup
+    if status:             # no VSS info in smaps_rollup
         for l in status:
             l = l.split() 
-            if l[0] == 'VmSize:':
+            if ROLLUP and l[0] == 'VmSize:':
                 maps[start]['size']=int(l[1])
-            if PSSDETAIL and l[0] == 'RssAnon:':
+            if l[0] == 'RssAnon:':
                 maps[start]['rss_anon']=int(l[1])
-            if PSSDETAIL and l[0] == 'RssFile:':
+            if l[0] == 'RssFile:':
                 maps[start]['rss_file']=int(l[1])
-            if PSSDETAIL and l[0] == 'RssShmem:':
+            if l[0] == 'RssShmem:':
                 maps[start]['rss_shmem']=int(l[1])
                 break
 
@@ -350,6 +351,7 @@ def cmdtotals(pids):
                     t['pss_anon']=0
                     t['pss_file']=0
                     t['pss_shmem']=0
+                if RSSDETAIL:
                     t['rss_anon']=0
                     t['rss_file']=0
                     t['rss_shmem']=0
@@ -491,6 +493,7 @@ def showpids():
              'proportional set size of mapped files')
         fields['psss']=('PssShmem', lambda n: pt[n]['pss_shmem'], '% 8a', sum,
              'proportional set size of shared memory')
+    if RSSDETAIL:
         fields['rssa']=('RssAnon', lambda n: pt[n]['rss_anon'], '% 8a', sum,
              'proportional set size of anonymous memory')
         fields['rssf']=('RssFile', lambda n: pt[n]['rss_file'], '% 8a', sum,
@@ -637,6 +640,7 @@ def showcmds():
              'proportional set size of files (including sharing)')
         fields['psss']=('PssShmem', lambda n: pt[n]['pss_shmem'], '% 8a', sum,
              'proportional set size of shared memory (including sharing)')
+    if RSSDETAIL:
         fields['rssa']=('RssAnon', lambda n: pt[n]['rss_anon'], '% 8a', sum,
              'proportional set size of anonymous memory (ignoring sharing)')
         fields['rssf']=('RssFile', lambda n: pt[n]['rss_file'], '% 8a', sum,
@@ -1089,12 +1093,20 @@ def setdatasources():
     global SWAPPSS
     global ROLLUP
     global PSSDETAIL
+    global RSSDETAIL
 
     OWNPID = os.getpid()
 
     """ New kernel features detection """
+    RSSDETAIL=False
     PSSDETAIL=True
     ROLLUP = True
+    rd = proc.readlines("%s/status" % OWNPID)
+    for r in rd:
+        if "RssAnona:" in r:
+            RSSDETAIL = True
+            break
+
     map = pidmaps(OWNPID, nomaps=True)
     map = map[list(map.keys())[0]]
 
@@ -1113,7 +1125,7 @@ def setdatasources():
     else:
         PSSDETAIL = False
         if not options.quiet:
-            sys.stderr.write("Warning: Kernel does not appear to support Pss/Rss Anon/File/Shmem measurement\n")
+            sys.stderr.write("Warning: Kernel does not appear to support Pss Anon/File/Shmem measurement\n")
 
     """ some smem features need full smaps"""
     if (options.mapfilter or 
