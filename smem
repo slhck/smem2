@@ -644,7 +644,7 @@ def showcmds():
         fields['rsss']=('RssShmem', lambda n: pt[n]['rss_shmem'], '% 8a', sum,
              'proportional set size of shared memory (ignoring sharing)')
 
-        columns = 'command pids swap uss pss rss'
+    columns = 'command pids swap uss pss rss'
     if '+' in options.columns:
         columns = columns + " " + options.columns.strip('+')
         options.columns = ""
@@ -672,13 +672,14 @@ def mapdevzero():
 
 def mapshared():
     global ROLLUP
-    ROLLUP = True
-    ps  = proc.pids()
-    pt = processtotals(ps)
     t  = 0
-    for p in pt:
-        t += pt[p]['pss_shmem']
-    ROLLUP = False
+    if PSSDETAIL:
+        ROLLUP = True
+        ps  = proc.pids()
+        pt = processtotals(ps)
+        for p in pt:
+            t += pt[p]['pss_shmem']
+        ROLLUP = False
     return int(t)
 
 
