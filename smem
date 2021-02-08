@@ -501,15 +501,7 @@ def showpids():
         fields['rsss']=('RssShmem', lambda n: pt[n]['rss_shmem'], '% 8a', sum,
              'proportional set size of shared memory')
 
-    columns = 'pid user command swap uss pss rss'
-    if '+' in options.columns:
-        columns = columns + " " + options.columns.strip('+')
-        options.columns = ""
-    if 'all' in options.columns:
-        columns = allcolumns(fields)
-    else:
-        columns = options.columns or columns
-
+    columns = getcolumns('pid user command swap uss pss rss', fields)
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
@@ -550,15 +542,8 @@ def showmaps():
         fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
              'Total virtual memory used (Pss + SwapPss)')
 
-    columns = 'map pids avgpss pss'
-    if '+' in options.columns:
-        columns = columns + " " + options.columns.strip('+')
-        options.columns = ""
-    if 'all' in options.columns:
-        columns = allcolumns(fields)
-    else:
-        columns = options.columns or columns
-
+    columns = getcolumns('map pids avgpss pss', fields)
+    
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
 
@@ -594,15 +579,7 @@ def showusers():
         fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
              'Total virtual memory used (Pss + SwapPss)')
 
-    columns = 'user count swap uss pss rss'
-    if '+' in options.columns:
-        columns = columns + " " + options.columns.strip('+')
-        options.columns = ""
-    if 'all' in options.columns:
-        columns = allcolumns(fields)
-    else:
-        columns = options.columns or columns
-
+    columns = getcolumns('user count swap uss pss rss')
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
@@ -648,20 +625,9 @@ def showcmds():
         fields['rsss']=('RssShmem', lambda n: pt[n]['rss_shmem'], '% 8a', sum,
              'proportional set size of shared memory (ignoring sharing)')
 
-    columns = 'command pids swap uss pss rss'
-    if '+' in options.columns:
-        columns = columns + " " + options.columns.strip('+')
-        options.columns = ""
-    if 'all' in options.columns:
-        columns = allcolumns(fields)
-    else:
-        columns = options.columns or columns
-
-
+    columns = getcolumns('command pids swap uss pss rss', fields)
+    
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
-
-def allcolumns(fields):
-    return ' '.join(fields.keys())
 
 def mapdevzero():
     """At least by some Linux versions, memory mapped to /dev/zero is counted to Mapped instead of to AnonPages, thus Mapped can be higher than Cached"""
@@ -685,7 +651,6 @@ def mapshared():
             t += pt[p]['pss_shmem']
         ROLLUP = False
     return int(t)
-
 
 def kernelsize():
     kernelsize = 0
@@ -793,9 +758,8 @@ def showsystem():
                 ("shared (shm/tmpfs/SysV)", 0, 0, m('shmem')),
                 ("unevictable", 0, 0, m('unevictable')),
                 ("mlocked", 0, 0, m('mlocked')),
-                ("available (estimated)", 0, 0, m('memavailable')),
                 ("swapped", 0, 0, m('swaptotal')- m('swapfree')),
-                ("cached", 0, 0, m('cached')),
+                ("available (estimated)", 0, 0, m('memavailable')),
             ]
             l = l + ld
     else:
@@ -816,17 +780,17 @@ def showsystem():
     if options.sysdetail:
         fields['details'] = ('Details',lambda n: l[n][3], '%10a',  sum, 'Aditional metrics')
 
-    columns = 'area used cache noncache'
-    if '+' in options.columns:
-        columns = columns + " " + options.columns.strip('+')
-        options.columns = ""
-    if 'all' in options.columns:
-        columns = allcolumns(fields)
-    else:
-        columns = options.columns or columns
+    columns = getcolumns('area used cache noncache', fields)
     showtable(
         list(range(len(l))), fields, columns.split(), options.sort or 'order')
 
+def getcolumns(columns, fields):
+    if '+' in options.columns:
+        columns = columns + " " + options.columns.strip('+')
+        return columns
+    if 'all' in options.columns:
+        return ' '.join(fields.keys())
+    return options.columns or columns
 
 def showfields(fields, f):
     if type(f) in (list, set):
@@ -836,7 +800,6 @@ def showfields(fields, f):
     print("known fields:")
     for l in sorted(fields):
         print("%-8s %s" % (l, fields[l][-1]))
-
 
 def autosize(columns, fields, rows):
     colsizes = {}
@@ -1103,7 +1066,7 @@ def setdatasources():
     ROLLUP = True
     rd = proc.readlines("%s/status" % OWNPID)
     for r in rd:
-        if "RssAnona:" in r:
+        if "RssAnon:" in r:
             RSSDETAIL = True
             break
 
