@@ -486,22 +486,27 @@ def showpids():
               'proportional amount of swap space consumed')
     if PSSDETAIL:
         fields['pssa']=('PssAnon', lambda n: pt[n]['pss_anon'], '% 8a', sum,
-             'proportional set size of anonymous memory (including sharing)')
+             'proportional set size of anonymous memory')
         fields['pssf']=('PssFile', lambda n: pt[n]['pss_file'], '% 8a', sum,
-             'proportional set size of files (including sharing)')
+             'proportional set size of mapped files')
         fields['psss']=('PssShmem', lambda n: pt[n]['pss_shmem'], '% 8a', sum,
-             'proportional set size of shared memory (including sharing)')
+             'proportional set size of shared memory')
         fields['rssa']=('RssAnon', lambda n: pt[n]['rss_anon'], '% 8a', sum,
-             'proportional set size of anonymous memory (ignoring sharing)')
+             'proportional set size of anonymous memory')
         fields['rssf']=('RssFile', lambda n: pt[n]['rss_file'], '% 8a', sum,
-             'proportional set size of files (including sharing)')
+             'proportional set size of mapped files')
         fields['rsss']=('RssShmem', lambda n: pt[n]['rss_shmem'], '% 8a', sum,
-             'proportional set size of shared memory (ignoring sharing)')
+             'proportional set size of shared memory')
 
-    if options.columns == 'all':
+    columns = 'pid user command swap uss pss rss'
+    if '+' in options.columns:
+        columns = columns + " " + options.columns.strip('+')
+        options.columns = ""
+    if 'all' in options.columns:
         columns = allcolumns(fields)
     else:
-        columns = options.columns or 'pid user command swap uss pss rss'
+        columns = options.columns or columns
+
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
@@ -542,10 +547,14 @@ def showmaps():
         fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
              'Total virtual memory used (Pss + SwapPss)')
 
-    if options.columns == 'all':
+    columns = 'map pids avgpss pss'
+    if '+' in options.columns:
+        columns = columns + " " + options.columns.strip('+')
+        options.columns = ""
+    if 'all' in options.columns:
         columns = allcolumns(fields)
     else:
-        columns = options.columns or 'map pids avgpss pss'
+        columns = options.columns or columns
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
@@ -582,10 +591,15 @@ def showusers():
         fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
              'Total virtual memory used (Pss + SwapPss)')
 
-    if options.columns == 'all':
+    columns = 'user count swap uss pss rss'
+    if '+' in options.columns:
+        columns = columns + " " + options.columns.strip('+')
+        options.columns = ""
+    if 'all' in options.columns:
         columns = allcolumns(fields)
     else:
-        columns = options.columns or 'user count swap uss pss rss'
+        columns = options.columns or columns
+
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
@@ -630,10 +644,15 @@ def showcmds():
         fields['rsss']=('RssShmem', lambda n: pt[n]['rss_shmem'], '% 8a', sum,
              'proportional set size of shared memory (ignoring sharing)')
 
-    if options.columns == 'all':
+        columns = 'command pids swap uss pss rss'
+    if '+' in options.columns:
+        columns = columns + " " + options.columns.strip('+')
+        options.columns = ""
+    if 'all' in options.columns:
         columns = allcolumns(fields)
     else:
-        columns = options.columns or 'command pids swap uss pss rss'
+        columns = options.columns or columns
+
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 
@@ -645,9 +664,21 @@ def mapdevzero():
     ps  = proc.pids()
     options.mapfilter = "^/dev/zero$"
     pt = maptotals(ps)
+    options.mapfilter = None
     t  = 0
     for r in pt:
         t += pt[r]['pss']
+    return int(t)
+
+def mapshared():
+    global ROLLUP
+    ROLLUP = True
+    ps  = proc.pids()
+    pt = processtotals(ps)
+    t  = 0
+    for p in pt:
+        t += pt[p]['pss_shmem']
+    ROLLUP = False
     return int(t)
 
 
@@ -684,35 +715,14 @@ def kernelmodsize():
     return int(ms)
 
 def showsystem():
-
     t       = totalmem()
     m       = MemData()
     mt      = m('memtotal')
     f       = m('memfree')
-    mapzero = mapdevzero()
     kernel  = kernelsize()
-    mapped  = m('mapped') - mapzero
 
     # total amount mapped into userspace (ie mapped an unmapped pages) /dev/zero mappings 
     u       = m('anonpages') + m('mapped')
-
-    if options.sysdetail:
-        modules = kernelmodsize()
-        # 'undocumented' part of kernel space
-        filecache= m('active(file)')+m('inactive(file)')
-        mounts   = proc.readlines('mounts')
-        #ramdisks = int(os.popen('mount |awk \'/ramfs/{print $3}\'|xargs du -sk|awk \'{s+=$1};END{print s}\'').read())
-        ramdisks = 0
-        for r in mounts:
-            if 'ramfs' in r:
-                try:
-                    ramdisks+=int((os.popen("du -sk %s" % r.split()[1] ).read()).split()[0])
-                except:
-                    pass
-        km       = mt - f - u - modules - m('slab') - m('kernelstack') - m('pagetables') - m('shmem') - m('buffers') - filecache - ramdisks
-        if km < 0:
-            km=0
-
 
     # total amount used by hardware
     fh      = int(max(t - mt - kernel, 0))
@@ -724,33 +734,70 @@ def showsystem():
     kdc = m('buffers') + m('sreclaimable') + m('cached')
 
     if options.sysdetail:
+        shmp    = mapshared()          # shared memory mapped by processes
+        mapzero = mapdevzero()      # dev/zero mapped as files should be subtracted from files Mapped from userspace
+        mapped  = m('mapped') - mapzero
+        modules = kernelmodsize()
+        shm = m('shmem') - shmp
+
+        mounts = proc.readlines('mounts')
+        #ramfs = int(os.popen('mount |awk \'/ramfs/{print $3}\'|xargs du -sk|awk \'{s+=$1};END{print s}\'').read())
+        ramfs = 0
+        for r in mounts:
+            if 'ramfs' in r:
+                try:
+                    ramfs+=int((os.popen("du -sk %s" % r.split()[1] ).read()).split()[0])
+                except:
+                    pass
+        filecache = m('cached') - mapped - shm - ramfs
+        unknown   = mt - f - u  - (   modules
+                                    + m('kernelstack')
+                                    + m('pagetables')
+                                    + m('slab')
+                                    + m('buffers')
+                                    + filecache
+                                    + shm
+                                    + ramfs
+                                  )
+        if unknown < 0:
+            unknown = 0
+
+
+
+    if options.sysdetail:
         l = [("firmware/hardware", fh, 0, 0),
              ("kernel image", kernel, 0, 0),
              ("kernel modules", modules, 0, 0),
-             ("kernel stack", m('kernelstack'), 0, 0),
              ("page tables", m('pagetables'), 0, 0),
+             ("kernel stack", m('kernelstack'), 0, 0),
              ("slab (all/SReclaimable)", m('slab'), m('sreclaimable'), 0),
              ("buffers", m('buffers'), m('buffers'), 0),
-             ("file cache (all/inactive)", filecache, m('inactive(file)'), 0),
-             ("shared (shm+tmpfs+SysV)", m('shmem'), m('shmem'), 0),
-             ("ramdisks", ramdisks, 0, 0),
-             ("unknown", km, 0, 0),
+             ("cached (w/o mapped,tmpfs,ramfs)", filecache, filecache, 0),
+             ("shmem (non process tmpfs)", shm, 0, 0),
+             ("ramfs", ramfs, 0, 0),
+             ("unknown", unknown, 0, 0),
              ("userspace memory", u, mapped, 0),
              ("free memory", f, f, 0),
-             ("-----------------------", 0, 0, 0),
-             ("dirty", 0, 0, m('dirty')),
-             ("/dev/zero mapped", 0, 0, mapzero),
-             #("cached", 0, 0, m('cached')),
-             ("unevictable", 0, 0, m('unevictable')),
-             ("mlocked", 0, 0, m('mlocked')),
-             ("available (estimated)", 0, 0, m('memavailable')),
-             ("swapped", 0, 0, m('swaptotal')- m('swapfree')),
+        ]
+        if 'all' in options.columns or 'details' in options.columns:
+            ld = [
+                ("-----------------------", 0, 0, 0),
+                ("dirty", 0, 0, m('dirty')),
+                ("/dev/zero mapped", 0, 0, mapzero),
+                #("cached", 0, 0, m('cached')),
+                ("shared (shm/tmpfs/SysV)", 0, 0, m('shmem')),
+                ("unevictable", 0, 0, m('unevictable')),
+                ("mlocked", 0, 0, m('mlocked')),
+                ("available (estimated)", 0, 0, m('memavailable')),
+                ("swapped", 0, 0, m('swaptotal')- m('swapfree')),
+                ("cached", 0, 0, m('cached')),
             ]
+            l = l + ld
     else:
         l = [("firmware/hardware", fh, 0),
              ("kernel image", kernel, 0),
              ("kernel dynamic memory", kd, kdc),
-             ("userspace memory", u, mapped),
+             ("userspace memory", u, m('mapped')),
              ("free memory", f, f )]
 
     fields = dict(
@@ -762,12 +809,16 @@ def showsystem():
         )
 
     if options.sysdetail:
-        fields['devz'] = ('Details',lambda n: l[n][3], '%10a',  sum, 'Aditional metrics')
+        fields['details'] = ('Details',lambda n: l[n][3], '%10a',  sum, 'Aditional metrics')
 
-    if options.columns == 'all':
+    columns = 'area used cache noncache'
+    if '+' in options.columns:
+        columns = columns + " " + options.columns.strip('+')
+        options.columns = ""
+    if 'all' in options.columns:
         columns = allcolumns(fields)
     else:
-        columns = options.columns or 'area used cache noncache'
+        columns = options.columns or columns
     showtable(
         list(range(len(l))), fields, columns.split(), options.sort or 'order')
 
@@ -1031,31 +1082,12 @@ def parse_arguments(argv=None):
 
     return argparser.parse_args()
 
-
-def main():
-    """Main function for smem"""
-    # TODO Remove the necessity of globals, this is a temporary workaround until functions have been updated
-    global ignore_autosize
-    global options
-    global proc
-
+def setdatasources():
     # constants
     global OWNPID
     global SWAPPSS
     global ROLLUP
     global PSSDETAIL
-
-
-    options = parse_arguments(sys.argv)
-    if options.totalsonly:
-        options.totals=True
-
-    ignore_autosize = set()
-
-    if not os.getuid() == 0 and not options.quiet:
-        sys.stderr.write("Warning: Results might be incomplete and distorted when smem doesn't run with root privileges\n")
-
-    proc = ProcessData()
 
     OWNPID = os.getpid()
 
@@ -1065,12 +1097,9 @@ def main():
     map = pidmaps(OWNPID, nomaps=True)
     map = map[list(map.keys())[0]]
 
-    if (options.mapfilter or options.mappings
-        or options.system or options.sysdetail
-        or 'maps' in options.columns or ('all' in options.columns and not options.groupcmd)):
-        ROLLUP = False
     if not 'pss' in map and not options.quiet:
         sys.stderr.write("Warning: Kernel does not appear to support PSS measurement\n")
+
     if 'swappss' in map:
         SWAPPSS=True
     else:
@@ -1085,6 +1114,32 @@ def main():
         if not options.quiet:
             sys.stderr.write("Warning: Kernel does not appear to support Pss/Rss Anon/File/Shmem measurement\n")
 
+    """ some smem features need full smaps"""
+    if (options.mapfilter or 
+        options.mappings  or
+        'maps' in options.columns or
+        ('all' in options.columns and not options.groupcmd)):
+            ROLLUP = False
+
+def main():
+    """Main function for smem"""
+    # TODO Remove the necessity of globals, this is a temporary workaround until functions have been updated
+    global ignore_autosize
+    global options
+    global proc
+
+    options = parse_arguments(sys.argv)
+    if options.totalsonly:
+        options.totals=True
+
+    ignore_autosize = set()
+
+    if not os.getuid() == 0 and not options.quiet:
+        sys.stderr.write("Warning: Some results might be incomplete and/or distorted when smem doesn't run with root privileges\n")
+
+    proc = ProcessData()
+
+    setdatasources()
     try:
         if options.mappings:
             showmaps()
