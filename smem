@@ -142,7 +142,7 @@ def totalmem():
     else:
         if options.system or options.sysdetail:
             try:
-                # GdH - don't know where to read this information in /sys
+                # only for systems running directly on HW
                 ram=os.popen('dmidecode --type memory 2> /dev/null|awk \'/Size: [0-9]+ MB/{sum+=$2};END{print sum}\'',).read().strip()
                 if ram.isdigit():
                     return fromunits( str(int(ram))+"M") / 1024
@@ -405,12 +405,12 @@ def fromunits(x):
 
 
 def showamount(a, total):
-    if options.abbreviate:
-        return units(a * 1024)
-    elif options.percent:
+    if options.percent:
         if total == 0:
-            return 'N/A'
+            return '0'
         return "%.2f%%" % (100.0 * a / total)
+    elif options.abbreviate:
+        return units(a * 1024)
     return a
 
 
@@ -701,17 +701,16 @@ def showsystem():
     kd      = mt - f - u
 
     # total amount in kernel caches
-    kdc = m('buffers') + m('sreclaimable') + m('cached')
+    kdc = m('buffers') + m('sreclaimable') + m('cached') - m('mapped')
 
     if options.sysdetail:
-        shmp    = mapshared()          # shared memory mapped by processes
+        shmp    = mapshared()       # shared memory mapped by processes
         mapzero = mapdevzero()      # dev/zero mapped as files should be subtracted from files Mapped from userspace
         mapped  = m('mapped') - mapzero
         modules = kernelmodsize()
         shm = m('shmem') - shmp
 
         mounts = proc.readlines('mounts')
-        #ramfs = int(os.popen('mount |awk \'/ramfs/{print $3}\'|xargs du -sk|awk \'{s+=$1};END{print s}\'').read())
         ramfs = 0
         for r in mounts:
             if 'ramfs' in r:
@@ -721,8 +720,8 @@ def showsystem():
                     pass
         filecache = m('cached') - mapped - shm - ramfs
         unknown   = mt - f - u  - (   modules
-                                    + m('kernelstack')
                                     + m('pagetables')
+                                    + m('kernelstack')
                                     + m('slab')
                                     + m('buffers')
                                     + filecache
@@ -743,23 +742,21 @@ def showsystem():
              ("slab (all/SReclaimable)", m('slab'), m('sreclaimable'), 0),
              ("buffers", m('buffers'), m('buffers'), 0),
              ("cached (w/o mapped,tmpfs,ramfs)", filecache, filecache, 0),
-             ("shmem (non process tmpfs)", shm, 0, 0),
+             ("shared (non process tmpfs)", shm, 0, 0),
              ("ramfs", ramfs, 0, 0),
              ("unknown", unknown, 0, 0),
-             ("userspace memory", u, mapped, 0),
+             ("processes (all/mapped files)", u, mapped, 0),
              ("free memory", f, f, 0),
         ]
         if 'all' in options.columns or 'details' in options.columns:
             ld = [
-                ("-----------------------", 0, 0, 0),
-                ("dirty", 0, 0, m('dirty')),
+                ("-------------------------------", 0, 0, 0),
                 ("/dev/zero mapped", 0, 0, mapzero),
-                #("cached", 0, 0, m('cached')),
-                ("shared (shm/tmpfs/SysV)", 0, 0, m('shmem')),
+                ("shared by processes", 0, 0, shmp),
                 ("unevictable", 0, 0, m('unevictable')),
-                ("mlocked", 0, 0, m('mlocked')),
+                ("dirty (unwritten to file)", 0, 0, m('dirty')),
                 ("swapped", 0, 0, m('swaptotal')- m('swapfree')),
-                ("available (estimated)", 0, 0, m('memavailable')),
+                ("available (estimated)", 0, 0, m('memavailable'))
             ]
             l = l + ld
     else:
