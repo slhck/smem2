@@ -132,9 +132,10 @@ class ProcessData(Proc):
 
     def pidname(self, pid):
         """Return PID comm data"""
-        c = self.read('%s/comm' % pid)[:-1]
-        return c
-
+        try:
+            return self.read('%s/comm' % pid)[:-1]
+        except:
+            return "?"
 
 def totalmem():
     if options.realmem:
