@@ -172,6 +172,8 @@ def pidmaps(pid, nomaps=False):
             name = "<anonymous>"
             if len(f) > 5:
                 name = f[5]
+                if options.basename:
+                    name = os.path.basename(name)
             maps[start] = dict(
                 end=int(end, 16),
                 mode=f[1],
