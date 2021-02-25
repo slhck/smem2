@@ -5,7 +5,7 @@ GdH:
  * added support for *proc/pid/smaps_rollup* (big speed boost for nonmapping part)
  * added *SwapPss, RssAnon, RssFile, RssShmem, PssAnon, PssFile, PssShmem, AvgVss* columns when supported by kernel
  * added *TPss* column = *Pss* + *SwapPss*
- * added *Comm* column (process name) to process view
+ * added *Name* column (process name *comm*) to process view
  * added *-g*/*--groupcmd* group by command view - same executables grouped together
  * added *-b*/*--basename* option: show only name of executables instead of path / full command with aeguments
  * added physical RAM size detection via *dmidecode* in system overview
@@ -13,10 +13,10 @@ GdH:
  * added *-T/--totalsonly* print totals only
  * added *-i/--ignorecase* option for case insensitive search
  * added *-W/--sysdetail* option with more detailed view on system memory
- * added */dev/zero* mapping calculation - memory inicialized from /dev/zero can be (wrongly) included as backed by file to *Mapped/Cached* measurement in /proc/MemInfo. Should be treated as anonymous memory and therefore it is now subtracted from *Mapped* measurement as *Mapped* is used to interpret cached part of the memory consumed by processes.
+ * added */dev/zero* mapping summary - memory initialized from /dev/zero can be (wrongly) included as backed by file to *Mapped* measurement in /proc/meminfo. That should be treated as anonymous memory and therefore it is now subtracted from the *Mapped* measurement in smem system view as *Mapped* is used to interpret cached part of the memory consumed by the processes.
  * added warnings about missing kernel features
- * added *-q/quiet* option to mute warnings
- * added *-c/--columns* option accept "all" string to use all available columns and '+column_name ...' to add columns to default set
+ * added *-q/--quiet* option to mute warnings
+ * added *-c/--columns* option accept "all" string to use all available columns and *+column_name ...* to add columns to default set
  * excluded own process from *-P* filtered output
  * fixed -M filter
  * fixed -R option not accepting argument
@@ -32,9 +32,9 @@ GdH:
                 [--cmd-width CMD_WIDTH] [--name-width NAME_WIDTH] [--user-width USER_WIDTH]
                 [--mapping-width MAPPING_WIDTH]
     
-    smem is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem
-    can report proportional set size (PSS), which is a more meaningful representation of the amount of memory
-    used by libraries and applications in a virtual memory system.
+    smem is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem can report proportional
+    set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual
+    memory system.
     
     optional arguments:
       -h, --help            show this help message and exit

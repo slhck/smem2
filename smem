@@ -883,6 +883,7 @@ def showtable(rows, fields, columns, sort):
 
     if not options.no_header:
         print(header)
+        print("-" * len(header))
 
     if not options.totalsonly:
         for k, r in l:
@@ -1108,7 +1109,7 @@ def main():
     ignore_autosize = set()
 
     if not os.getuid() == 0 and not options.quiet:
-        sys.stderr.write("Warning: Some results might be incomplete and/or distorted when smem doesn't run with root privileges\n")
+        sys.stderr.write("Warning: Some results might be incomplete when smem doesn't run with root privileges\n")
 
     proc = ProcessData()
 
