@@ -17,6 +17,7 @@ GdH:
  * added warnings about missing kernel features
  * added *-q/--quiet* option to mute warnings
  * added *-c/--columns* option accept "all" string to use all available columns and *+column_name ...* to add columns to default set
+ * added *--pid* option to show process memory based on one pid
  * excluded own process from *-P* filtered output
  * fixed -M filter
  * fixed -R option not accepting argument

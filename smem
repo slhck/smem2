@@ -3,6 +3,7 @@
 # smem - a tool for meaningful memory reporting
 #
 # Copyright 2008-2009 Matt Mackall <mpm@selenic.com>
+# 2021 Extended by GdH <github.com/G-dH/smem>
 #
 # This software may be used and distributed according to the terms of
 # the GNU General Public License version 2 or later, incorporated
@@ -89,8 +90,11 @@ class ProcessData(Proc):
         return os.stat("/proc/" + pid)
 
     def pids(self):
-        """Get a list of PID's"""                                                                          # exclude own process when processfilter
-        return [int(e) for e in self.listdir() if e.isdigit() and not self._iskernel(e) and not ((int(e) == OWNPID) and options.processfilter)] 
+        """Get a list of PID's"""
+        return [int(e) for e in self.listdir() if e.isdigit() and not self._iskernel(e)\
+                    and ((options.pid and options.pid == int(e)) or not options.pid)\
+                    and not ((int(e) == OWNPID) and options.processfilter)]
+                    #exclude own process when processfilter
 
     def mapdata(self, pid):
         """Return PID smaps data"""
@@ -968,6 +972,11 @@ def parse_arguments(argv=None):
             default=None,
             type=str,
             help="Process users regex")
+
+    filter_group.add_argument( '--pid',
+            default=None,
+            type=int,
+            help="Show just process memory based on one pid")
 
     filter_group.add_argument('-i', '--ignorecase',
             action='store_true',
