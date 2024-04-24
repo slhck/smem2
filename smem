@@ -4,6 +4,7 @@
 #
 # Copyright 2008-2009 Matt Mackall <mpm@selenic.com>
 # 2021 Extended by GdH <github.com/G-dH/smem>
+# 2024 Fix by slhck <github.com/slhck/smem>
 #
 # This software may be used and distributed according to the terms of
 # the GNU General Public License version 2 or later, incorporated
@@ -371,6 +372,8 @@ def cmdtotals(pids):
 
         except EnvironmentError:
             continue
+        except Exception:
+            continue
     return totals
 
 def sortmaps(totals, key):
@@ -586,7 +589,7 @@ def showusers():
         fields['tpss']=('TPSS', lambda n: pt[n]['pss'] + pt[n]['swappss'], '% 8a', sum,
              'Total virtual memory used (Pss + SwapPss)')
 
-    columns = getcolumns('user count swap uss pss rss')
+    columns = getcolumns('user count swap uss pss rss', fields)
 
     showtable(list(pt.keys()), fields, columns.split(), options.sort or 'pss')
 

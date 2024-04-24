@@ -1,5 +1,9 @@
 # smem
 
+Slhck:
+
+ * bugfix for "list index out of range" and getcolumns() call
+
 GdH:
 
  * added support for *proc/pid/smaps_rollup* (big speed boost for nonmapping part)
@@ -23,7 +27,7 @@ GdH:
  * fixed -R option not accepting argument
  * fixed -K option - kernel compression detection
  * fixed AVGUSS - KeyError: 'uss'
- 
+
 
 
   **Smem usage:**
@@ -32,11 +36,11 @@ GdH:
                 [-U USERFILTER] [-i] [-m] [-u] [-w] [-W] [-g] [-p] [-k] [-t] [-T] [-n] [-s SORT] [-r]
                 [--cmd-width CMD_WIDTH] [--name-width NAME_WIDTH] [--user-width USER_WIDTH]
                 [--mapping-width MAPPING_WIDTH]
-    
+
     smem is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem can report proportional
     set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual
     memory system.
-    
+
     optional arguments:
       -h, --help            show this help message and exit
       -H, --no-header       Disable header line
@@ -49,7 +53,7 @@ GdH:
                             Path to kernel image
       -b, --basename        Name of executable instead of full command
       -q, --quiet           Suppress warnings
-    
+
     Filter:
       -P PROCESSFILTER, --processfilter PROCESSFILTER
                             Process filter regex
@@ -58,7 +62,7 @@ GdH:
       -U USERFILTER, --userfilter USERFILTER
                             Process users regex
       -i, --ignorecase      Case insensitive filter
-    
+
     Show:
       -m, --mappings        Show mappings
       -u, --users           Show users
@@ -69,12 +73,12 @@ GdH:
       -k, --abbreviate      Show unit suffixes
       -t, --totals          Show totals
       -T, --totalsonly      Show totals only
-    
+
     Sort:
       -n, --numeric         Numeric sort
       -s SORT, --sort SORT  Field to sort on
       -r, --reverse         Reverse sort
-    
+
     Width:
       --cmd-width CMD_WIDTH
                             Text width for commands (0=as needed)
@@ -84,7 +88,7 @@ GdH:
                             Text width for user names (0=as needed)
       --mapping-width MAPPING_WIDTH
                             Text width for mapping names (0=as needed)
-    
+
 
 
 /GdH
