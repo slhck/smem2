@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
-COPY ./smem /usr/local/bin/smem
+WORKDIR /
+COPY ./smem2 /usr/local/bin/smem2
+COPY ./test.sh /test.sh
 
-ENTRYPOINT [ "/usr/local/bin/smem" ]
+ENTRYPOINT [ "/usr/local/bin/smem2" ]

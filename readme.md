@@ -1,10 +1,12 @@
-# smem
+# smem2
 
-`smem` is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem can report proportional set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual memory system.
+`smem2` is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem2 can report proportional set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual memory system.
 
 Because large portions of physical memory are typically shared among multiple applications, the standard measure of memory usage known as resident set size (RSS) will significantly overestimate memory usage. PSS instead measures each application's "fair share" of each shared area to give a realistic measure.
 
-smem has many features:
+smem2 is based the [original `smem` version](https://www.selenic.com/smem/) and its many forks, with adjustments primarily made in the [fork from GdH](https://github.com/G-dH/smem). This is just a cleaner version of the original `smem` with some additional features and bugfixes, and Python code improvements.
+
+smem2 has many features:
 
  * system overview listing
  * listings by process, mapping, user
@@ -19,6 +21,7 @@ Contents:
 
 - [Requirements](#requirements)
 - [Usage](#usage)
+- [Docker](#docker)
 - [History](#history)
 - [License](#license)
 
@@ -30,14 +33,14 @@ Contents:
 ## Usage
 
 ```
-usage: smem [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-q]
+usage: smem2 [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-q]
             [-P PROCESSFILTER] [-M MAPFILTER] [-U USERFILTER] [--pid PID] [-i]
             [-m] [-u] [-w] [-W] [-g] [-p] [-k] [-t] [-T] [-n] [-s SORT] [-r]
             [--cmd-width CMD_WIDTH] [--name-width NAME_WIDTH]
             [--user-width USER_WIDTH] [--mapping-width MAPPING_WIDTH]
 
-smem is a tool that can give numerous reports on memory usage on Linux
-systems. Unlike existing tools, smem can report proportional set size (PSS),
+smem2 is a tool that can give numerous reports on memory usage on Linux
+systems. Unlike existing tools, smem2 can report proportional set size (PSS),
 which is a more meaningful representation of the amount of memory used by
 libraries and applications in a virtual memory system.
 
@@ -90,12 +93,23 @@ Width:
   --mapping-width MAPPING_WIDTH
                         Text width for mapping names (0=as needed)
 
-For more information please visit: https://github.com/slhck/smem
+For more information please visit: https://github.com/slhck/smem2
+```
+
+## Docker
+
+To build with Docker:
+
+```bash
+# build the image
+docker build -t smem2 .
+# run smem2
+docker run --rm -it smem2
+# run simple invocation tests
+docker run --entrypoint /test.sh --rm -it smem2
 ```
 
 ## History
-
-Changes compared to the [original `smem` version](https://www.selenic.com/smem/) were primarily made in the [fork from GdH](https://github.com/G-dH/smem):
 
  * bugfix for "list index out of range" and getcolumns() call
  * added support for *proc/pid/smaps_rollup* (big speed boost for nonmapping part)
@@ -122,4 +136,4 @@ Changes compared to the [original `smem` version](https://www.selenic.com/smem/)
 
 ## License
 
-smem is licensed under the GPL version 2.0. See the COPYING file for more information.
+smem2 is licensed under the GPL version 2.0. See the COPYING file for more information.
