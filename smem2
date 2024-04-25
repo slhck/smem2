@@ -15,10 +15,14 @@ from __future__ import annotations
 
 import argparse
 import errno
+import json
 import os
 import pwd
 import re
 import sys
+from typing import Callable
+
+__VERSION__ = "2.1.0"
 
 # TODO Remove the necessity of globals, this is a temporary workaround until functions have been updated
 IGNORE_AUTOSIZE: set = set()
@@ -1146,14 +1150,26 @@ def getcolumns(columns, fields):
     return OPTIONS.columns or columns
 
 
-def showfields(fields, f):
+def show_fields_error_and_exit(fields, f):
+    """
+    Print the known and unknown fields and exit.
+
+    Parameters:
+    - fields (dict): A dictionary containing the known fields.
+    - f (str or list/set): The field(s) to check for unknownness.
+
+    Returns:
+    None
+    """
     if type(f) in (list, set):
-        print("unknown fields: " + " ".join(f))
+        print("unknown fields: " + " ".join(f), file=sys.stderr)
     else:
-        print("unknown field %s" % f)
-    print("known fields:")
+        print("unknown field %s" % f, file=sys.stderr)
+    print("known fields:", file=sys.stderr)
     for l in sorted(fields):
-        print("%-8s %s" % (l, fields[l][-1]))
+        print("%-8s %s" % (l, fields[l][-1]), file=sys.stderr)
+
+    sys.exit(-1)
 
 
 def autosize(columns, fields, rows):
@@ -1189,14 +1205,13 @@ def autosize(columns, fields, rows):
     return colsizes
 
 
-def showtable(rows, fields, columns, sort):
+def showtable(rows: list, fields: dict, columns: list, sort: str):
     header = ""
     table_format = ""
-    formatter = []
+    formatter: list[Callable] = []
 
     if sort not in fields:
-        showfields(fields, sort)
-        sys.exit(-1)
+        show_fields_error_and_exit(fields, sort)
 
     mt = totalmem()
     memdata = MemData()
@@ -1204,8 +1219,7 @@ def showtable(rows, fields, columns, sort):
 
     missing = set(columns) - set(fields)
     if len(missing) > 0:
-        showfields(fields, missing)
-        sys.exit(-1)
+        show_fields_error_and_exit(fields, missing)
 
     if OPTIONS.autosize:
         colsizes = autosize(columns, fields, rows)
@@ -1237,27 +1251,59 @@ def showtable(rows, fields, columns, sort):
     else:
         l.sort(reverse=bool(OPTIONS.reverse))
 
-    if not OPTIONS.no_header:
-        print(header)
-        print("-" * len(header))
-
-    if not OPTIONS.totalsonly:
-        for k, r in l:
-            print(table_format % tuple([f(v) for f, v in zip(formatter, r)]))
-
-    if OPTIONS.totals:
-        # totals
-        t = []
-        for c in columns:
-            f = fields[c][3]
-            if f:
-                t.append(f([fields[c][1](n) for n in rows]))
-            else:
-                t.append("")
+    if OPTIONS.format == "raw":
+        if not OPTIONS.no_header:
+            print(header)
+            print("-" * len(header))
 
         if not OPTIONS.totalsonly:
-            print("-" * len(header))
-        print(table_format % tuple([f(v) for f, v in zip(formatter, t)]))
+            for k, r in l:
+                print(table_format % tuple([f(v) for f, v in zip(formatter, r)]))
+
+        if OPTIONS.totals:
+            # totals
+            t = []
+            for c in columns:
+                f = fields[c][3]
+                if f:
+                    t.append(f([fields[c][1](n) for n in rows]))
+                else:
+                    t.append("")
+
+            if not OPTIONS.totalsonly:
+                print("-" * len(header))
+            print(table_format % tuple([f(v) for f, v in zip(formatter, t)]))
+    elif OPTIONS.format == "json":
+        ret: dict
+        if not OPTIONS.totals:
+            data = []
+            for _k, row in l:
+                row_data = {}
+                for i, col in enumerate(columns):
+                    # row_data[col] = row[i] --> raw
+                    row_data[col] = formatter[i](row[i])
+
+                data.append(row_data)
+            ret = {"processes": data}
+        else:
+            t = []
+            for c in columns:
+                f = fields[c][3]
+                if f:
+                    t.append(f([fields[c][1](n) for n in rows]))
+                else:
+                    t.append("")
+
+            row_data = {}
+            for i, col in enumerate(columns):
+                row_data[col] = t[i]
+
+            ret = {"totals": row_data}
+
+        print(json.dumps(ret))
+    else:
+        sys.stderr.write("Unknown format '%s'\n" % OPTIONS.format)
+        sys.exit(-1)
 
 
 def parse_arguments(argv=None):
@@ -1269,8 +1315,9 @@ def parse_arguments(argv=None):
                     more meaningful representation of the amount of memory used by libraries and
                     applications in a virtual memory system.
                     """,
-        epilog="""
-               For more information please visit:
+        epilog=f"""
+               Version: {__VERSION__} -
+               for more information please visit:
                https://github.com/slhck/smem2
                """,
     )
@@ -1311,6 +1358,8 @@ def parse_arguments(argv=None):
     argparser.add_argument(
         "-q", "--quiet", action="store_true", help="Suppress warnings"
     )
+
+    argparser.add_argument("--version", action="version", version=__VERSION__)
 
     filter_group = argparser.add_argument_group("Filter")
     filter_group.add_argument(
@@ -1369,6 +1418,14 @@ def parse_arguments(argv=None):
     show_group.add_argument("-t", "--totals", action="store_true", help="Show totals")
     show_group.add_argument(
         "-T", "--totalsonly", action="store_true", help="Show totals only"
+    )
+
+    show_group.add_argument(
+        "-F",
+        "--format",
+        default="raw",
+        type=str,
+        help="Output format (raw, json)",
     )
 
     sort_group = argparser.add_argument_group("Sort")

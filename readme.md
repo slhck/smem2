@@ -16,6 +16,7 @@ smem2 has many features:
  * configurable headers and totals
  * reading live data from /proc
  * lightweight capture tool for embedded systems
+ * json output support
 
 Contents:
 
@@ -34,10 +35,11 @@ Contents:
 
 ```
 usage: smem2 [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-q]
-            [-P PROCESSFILTER] [-M MAPFILTER] [-U USERFILTER] [--pid PID] [-i]
-            [-m] [-u] [-w] [-W] [-g] [-p] [-k] [-t] [-T] [-n] [-s SORT] [-r]
-            [--cmd-width CMD_WIDTH] [--name-width NAME_WIDTH]
-            [--user-width USER_WIDTH] [--mapping-width MAPPING_WIDTH]
+             [--version] [-P PROCESSFILTER] [-M MAPFILTER] [-U USERFILTER]
+             [--pid PID] [-i] [-m] [-u] [-w] [-W] [-g] [-p] [-k] [-t] [-T]
+             [-F FORMAT] [-n] [-s SORT] [-r] [--cmd-width CMD_WIDTH]
+             [--name-width NAME_WIDTH] [--user-width USER_WIDTH]
+             [--mapping-width MAPPING_WIDTH]
 
 smem2 is a tool that can give numerous reports on memory usage on Linux
 systems. Unlike existing tools, smem2 can report proportional set size (PSS),
@@ -56,6 +58,7 @@ options:
                         Path to kernel image
   -b, --basename        Name of executable instead of full command
   -q, --quiet           Suppress warnings
+  --version             show program's version number and exit
 
 Filter:
   -P PROCESSFILTER, --processfilter PROCESSFILTER
@@ -77,6 +80,8 @@ Show:
   -k, --abbreviate      Show unit suffixes
   -t, --totals          Show totals
   -T, --totalsonly      Show totals only
+  -F FORMAT, --format FORMAT
+                        Output format (raw, json)
 
 Sort:
   -n, --numeric         Numeric sort
@@ -93,7 +98,8 @@ Width:
   --mapping-width MAPPING_WIDTH
                         Text width for mapping names (0=as needed)
 
-For more information please visit: https://github.com/slhck/smem2
+Version: 2.1.0 - for more information please visit:
+https://github.com/slhck/smem2
 ```
 
 ## Docker
