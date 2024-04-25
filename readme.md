@@ -4,7 +4,7 @@
 
 Because large portions of physical memory are typically shared among multiple applications, the standard measure of memory usage known as resident set size (RSS) will significantly overestimate memory usage. PSS instead measures each application's "fair share" of each shared area to give a realistic measure.
 
-smem2 is based the [original `smem` version](https://www.selenic.com/smem/) and its many forks, with adjustments primarily made in the [fork from GdH](https://github.com/G-dH/smem). This is just a cleaner version of the original `smem` with some additional features and bugfixes, and Python code improvements.
+smem2 is based the [original `smem` version](https://www.selenic.com/smem/) and its many forks, with adjustments primarily made in the [fork from GdH](https://github.com/G-dH/smem). This is just a cleaner version of the original `smem` with some additional features and bugfixes, and Python code improvements. The whole credit to the actual functionality goes to the original authors.
 
 smem2 has many features:
 
@@ -32,6 +32,30 @@ Contents:
 * Linux (with procfs) with a reasonably modern kernel (> 2.6.27 or so)
 
 ## Usage
+
+Example:
+
+```bash
+# basic usage
+smem
+
+# print a system overview
+smem2 -w
+
+# group processes by command
+smem2 -g
+
+# print totals only
+smem2 -T
+
+# print a system overview in detail
+smem2 -W
+
+# print as JSON
+smem2 -F json
+```
+
+Full usage:
 
 ```
 usage: smem2 [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-q]
@@ -110,9 +134,9 @@ To build with Docker:
 # build the image
 docker build -t smem2 .
 # run smem2
-docker run --rm -it smem2
+docker run --rm -t smem2
 # run simple invocation tests
-docker run --entrypoint /test.sh --rm -it smem2
+docker run --entrypoint /test.sh --rm -t smem2
 ```
 
 ## History
