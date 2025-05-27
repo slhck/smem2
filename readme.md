@@ -37,7 +37,7 @@ Example:
 
 ```bash
 # basic usage
-smem
+smem2
 
 # print a system overview
 smem2 -w
