@@ -6,36 +6,46 @@ Contents:
 
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Usage](#usage)
+- [CLI Usage](#cli-usage)
+  - [Full Usage](#full-usage)
+- [Docker Usage](#docker-usage)
+  - [Running smem2 with Docker](#running-smem2-with-docker)
+  - [Testing with Docker](#testing-with-docker)
+- [API Usage](#api-usage)
 - [Detailed Description](#detailed-description)
-- [Full Usage](#full-usage)
-- [Docker](#docker)
 - [License](#license)
 
 ## Requirements
 
-* Python 3.6 or higher
+* Python 3.9 or higher
 * Linux (with procfs) with a reasonably modern kernel (> 2.6.27 or so)
 
 ## Installation
 
-```bash
-wget https://raw.githubusercontent.com/slhck/smem2/refs/heads/master/smem2
-chmod +x smem2
-```
-
-Optionally move the binary to a directory in your `$PATH`, e.g. `/usr/local/bin/smem2`.
+You can install the tool and library with `pip`:
 
 ```bash
-sudo mv smem2 /usr/local/bin/smem2
+pip3 install smem2
 ```
 
-## Usage
+If you only need the tool, you should probably install it with `pipx`:
+
+```bash
+pipx install smem2
+```
+
+Or use `uvx` (from [`uv`](https://docs.astral.sh/uv/)) directly:
+
+```bash
+uvx smem2
+```
+
+## CLI Usage
 
 Basic usage:
 
 ```bash
-smem
+smem2
 ```
 
 Example output:
@@ -93,6 +103,20 @@ Example output:
 
 ```
 
+Print using human-readable numbers with unit suffixes:
+
+```bash
+smem2 -k
+```
+
+Example output:
+
+```console
+  PID User     Command                         Swap      USS      PSS      RSS
+-------------------------------------------------------------------------------
+    1 root     python3 /usr/local/bin/smem        0    11.6M    12.0M    13.0M
+```
+
 Print a system overview in detail:
 
 ```bash
@@ -131,6 +155,118 @@ Example output:
 {"processes": [{"pid": 1, "user": "root", "command": "python3 /usr/local/bin/smem2 -F json", "swap": 0, "uss": 11880, "pss": 12299, "rss": 13320}]}
 ```
 
+### Full Usage
+
+```
+usage: smem2 [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-q]
+             [--version] [-P PROCESSFILTER] [-M MAPFILTER] [-U USERFILTER]
+             [--pid PID] [-i] [-m] [-u] [-w] [-W] [-g] [-p] [-k] [-t] [-T]
+             [-F FORMAT] [-n] [-s SORT] [-r] [--cmd-width CMD_WIDTH]
+             [--name-width NAME_WIDTH] [--user-width USER_WIDTH]
+             [--mapping-width MAPPING_WIDTH]
+
+smem2 is a tool that can give numerous reports on memory usage on Linux
+systems. Unlike existing tools, smem2 can report proportional set size (PSS),
+which is a more meaningful representation of the amount of memory used by
+libraries and applications in a virtual memory system.
+
+options:
+  -h, --help            show this help message and exit
+  -H, --no-header       Disable header line
+  -c, --columns COLUMNS
+                        Columns to show, use 'all' to show all columns
+  -a, --autosize        Size columns to fit terminal size
+  -R, --realmem REALMEM
+                        Amount of physical RAM
+  -K, --kernel KERNEL   Path to kernel image
+  -b, --basename        Name of executable instead of full command
+  -q, --quiet           Suppress warnings
+  --version             show program's version number and exit
+
+Filter:
+  -P, --processfilter PROCESSFILTER
+                        Process filter regex
+  -M, --mapfilter MAPFILTER
+                        Process map regex
+  -U, --userfilter USERFILTER
+                        Process users regex
+  --pid PID             Show just process memory based on one pid
+  -i, --ignorecase      Case insensitive filter
+
+Show:
+  -m, --mappings        Show mappings
+  -u, --users           Show users
+  -w, --system          Show whole system
+  -W, --sysdetail       Show whole system in detail
+  -g, --groupcmd        Show processes grouped by executables
+  -p, --percent         Show percentage
+  -k, --abbreviate      Show unit suffixes
+  -t, --totals          Show totals
+  -T, --totalsonly      Show totals only
+  -F, --format FORMAT   Output format (raw, json)
+
+Sort:
+  -n, --numeric         Numeric sort
+  -s, --sort SORT       Field to sort on
+  -r, --reverse         Reverse sort
+
+Width:
+  --cmd-width CMD_WIDTH
+                        Text width for commands (0=as needed)
+  --name-width NAME_WIDTH
+                        Text width for command names (0=as needed)
+  --user-width USER_WIDTH
+                        Text width for user names (0=as needed)
+  --mapping-width MAPPING_WIDTH
+                        Text width for mapping names (0=as needed)
+
+Version: 2.2.0 - for more information please visit:
+https://github.com/slhck/smem
+```
+
+## Docker Usage
+
+The project includes a multi-stage Dockerfile with separate stages for running the tool and testing.
+
+### Running smem2 with Docker
+
+To build and run smem2 using Docker:
+
+```bash
+# Build the production image
+docker build -t smem2 --target production .
+
+# Run smem2 (default process view)
+docker run --rm smem2
+
+# Run with specific options
+docker run --rm smem2 --system
+docker run --rm smem2 --users
+docker run --rm smem2 --help
+```
+
+### Testing with Docker
+
+To run the test suite using Docker:
+
+```bash
+# Build the test image
+docker build -t smem2-test --target test .
+
+# Run all tests
+docker run --rm smem2-test
+
+# Run specific tests
+docker run --rm smem2-test test/test_smem2.py::test_basic_run
+docker run --rm smem2-test -v  # verbose output
+```
+
+## API Usage
+
+You can import `smem2` as a library and use it in your own Python code.
+
+You can check the `__main__.py` file for an example of how to use the library.
+
 ## Detailed Description
 
 Because large portions of physical memory are typically shared among multiple applications, the standard measure of memory usage known as resident set size (RSS) will significantly overestimate memory usage. PSS instead measures each application's "fair share" of each shared area to give a realistic measure.
@@ -149,89 +285,6 @@ smem2 has many features:
  * lightweight capture tool for embedded systems
  * JSON output support
 
-## Full Usage
-
-```
-usage: smem2 [-h] [-H] [-c COLUMNS] [-a] [-R REALMEM] [-K KERNEL] [-b] [-q]
-             [--version] [-P PROCESSFILTER] [-M MAPFILTER] [-U USERFILTER]
-             [--pid PID] [-i] [-m] [-u] [-w] [-W] [-g] [-p] [-k] [-t] [-T]
-             [-F FORMAT] [-n] [-s SORT] [-r] [--cmd-width CMD_WIDTH]
-             [--name-width NAME_WIDTH] [--user-width USER_WIDTH]
-             [--mapping-width MAPPING_WIDTH]
-
-smem2 is a tool that can give numerous reports on memory usage on Linux
-systems. Unlike existing tools, smem2 can report proportional set size (PSS),
-which is a more meaningful representation of the amount of memory used by
-libraries and applications in a virtual memory system.
-
-options:
-  -h, --help            show this help message and exit
-  -H, --no-header       Disable header line
-  -c COLUMNS, --columns COLUMNS
-                        Columns to show, use 'all' to show all columns
-  -a, --autosize        Size columns to fit terminal size
-  -R REALMEM, --realmem REALMEM
-                        Amount of physical RAM
-  -K KERNEL, --kernel KERNEL
-                        Path to kernel image
-  -b, --basename        Name of executable instead of full command
-  -q, --quiet           Suppress warnings
-  --version             show program's version number and exit
-
-Filter:
-  -P PROCESSFILTER, --processfilter PROCESSFILTER
-                        Process filter regex
-  -M MAPFILTER, --mapfilter MAPFILTER
-                        Process map regex
-  -U USERFILTER, --userfilter USERFILTER
-                        Process users regex
-  --pid PID             Show just process memory based on one pid
-  -i, --ignorecase      Case insensitive filter
-
-Show:
-  -m, --mappings        Show mappings
-  -u, --users           Show users
-  -w, --system          Show whole system
-  -W, --sysdetail       Show whole system in detail
-  -g, --groupcmd        Show processes grouped by executables
-  -p, --percent         Show percentage
-  -k, --abbreviate      Show unit suffixes
-  -t, --totals          Show totals
-  -T, --totalsonly      Show totals only
-  -F FORMAT, --format FORMAT
-                        Output format (raw, json)
-
-Sort:
-  -n, --numeric         Numeric sort
-  -s SORT, --sort SORT  Field to sort on
-  -r, --reverse         Reverse sort
-
-Width:
-  --cmd-width CMD_WIDTH
-                        Text width for commands (0=as needed)
-  --name-width NAME_WIDTH
-                        Text width for command names (0=as needed)
-  --user-width USER_WIDTH
-                        Text width for user names (0=as needed)
-  --mapping-width MAPPING_WIDTH
-                        Text width for mapping names (0=as needed)
-
-Version: 2.1.0 - for more information please visit:
-https://github.com/slhck/smem2
-```
-
-## Docker
-
-To build with Docker:
-
-```bash
-# build the image
-docker build -t smem2 .
-# run smem2
-docker run --rm -t smem2
-# run Pytest suite
-docker run --entrypoint /test.py --rm -t smem2
-```
 
 ## License
 

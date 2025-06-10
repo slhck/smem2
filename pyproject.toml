@@ -1,0 +1,33 @@
+[project]
+name = "smem2"
+version = "2.2.0"
+authors = [
+  { name="Werner Robitza", email="werner.robitza@gmail.com" },
+]
+description = "A tool to monitor memory usage of processes and the system"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "GPL-2.0-or-later"
+license-files = ["COPYING"]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/slhck/smem2"
+Issues = "https://github.com/slhck/smem2/issues"
+
+[build-system]
+requires = ["hatchling >= 1.26"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.0",
+    "pytest>=8.4.0",
+]
+
+[project.scripts]
+smem2 = "smem2.__main__:main"

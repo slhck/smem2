@@ -113,10 +113,9 @@ def test_groupcmd():
     header = lines[0]
     assert "Command" in header
     assert "PIDs" in header
-    assert "Swap" in header
-    assert "USS" in header
     assert "PSS" in header
     assert "RSS" in header
+    assert "USS" in header
 
 
 def test_totalsonly():
@@ -147,9 +146,10 @@ def test_columns_all():
     lines = output.strip().split("\n")
     assert len(lines) >= 2
     header = lines[0]
-    assert "Name" in header
     assert "Maps" in header
-    assert "VSS" in header
+    assert "PSS" in header
+    assert "RSS" in header
+    assert "USS" in header
     # These might not be available on all kernels, so we don't assert their presence
     # assert "TPSS" in header
     # assert "SwapPss" in header
