@@ -237,7 +237,7 @@ class ProcessData(Proc):
             pid (str): The process ID.
 
         Returns:
-            list[str]: The lines from the smaps or smaps_rollup file.
+            list[str]: The lines from the smaps or smaps_rollup file, or an empty list on error.
         """
         if self.config.rollup:
             try:
@@ -246,7 +246,10 @@ class ProcessData(Proc):
                 )  # smaps_rollup new from kernel 4.14, at least 7x faster for non maping listing
             except Exception:
                 pass
-        return self.readlines("%s/smaps" % pid)
+        try:
+            return self.readlines("%s/smaps" % pid)
+        except (RuntimeError, PermissionError):
+            return []
 
     def pidcmd(self, pid):
         """Gets the command line for a process.
@@ -381,7 +384,10 @@ def pidmaps(pid, proc: ProcessData, config: SmemConfig, nomaps=False):
     start = None
     status = None
     if config.rollup or config.pssdetail or config.rssdetail:
-        status = proc.readlines("%s/status" % pid)
+        try:
+            status = proc.readlines("%s/status" % pid)
+        except (RuntimeError, PermissionError):
+            status = None
 
     for l in proc.mapdata(pid):
         f = l.split()

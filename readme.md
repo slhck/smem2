@@ -42,6 +42,14 @@ uvx smem2
 
 ## CLI Usage
 
+**Note on Permissions:** `smem2` needs to read files in `/proc` to gather memory information. Some of these files, especially for processes owned by other users or system processes (like PID 1), may require root privileges to read (e.g., `/proc/1/smaps`).
+
+If you run `smem2` as a non-root user, it may not be able to access information for all processes. It will silently skip processes it cannot read, so the output may be incomplete. For a complete system view, it is recommended to run `smem2` with `sudo`:
+
+```bash
+sudo smem2
+```
+
 Basic usage:
 
 ```bash
