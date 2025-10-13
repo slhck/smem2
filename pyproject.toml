@@ -31,3 +31,4 @@ dev = [
 
 [project.scripts]
 smem2 = "smem2.__main__:main"
+
