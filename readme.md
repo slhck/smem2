@@ -17,27 +17,27 @@ Contents:
 
 ## Requirements
 
-* Python 3.9 or higher
-* Linux (with procfs) with a reasonably modern kernel (> 2.6.27 or so)
+- Python 3.9 or higher
+- Linux (with procfs) with a reasonably modern kernel (> 2.6.27 or so)
 
 ## Installation
 
-You can install the tool and library with `pip`:
+Use `uvx` (from [`uv`](https://docs.astral.sh/uv/)) to run it directly:
 
 ```bash
-pip3 install smem2
+uvx smem2
 ```
 
-If you only need the tool, you should probably install it with `pipx`:
+Or install it with `pipx`:
 
 ```bash
 pipx install smem2
 ```
 
-Or use `uvx` (from [`uv`](https://docs.astral.sh/uv/)) directly:
+Or install the tool and library with `pip`:
 
 ```bash
-uvx smem2
+pip3 install smem2
 ```
 
 ## CLI Usage
@@ -283,16 +283,15 @@ smem2 is based the [original `smem` version](https://www.selenic.com/smem/) and 
 
 smem2 has many features:
 
- * system overview listing
- * listings by process, mapping, user
- * filtering by process, mapping, or user
- * configurable columns from multiple data sources
- * configurable output units and percentages
- * configurable headers and totals
- * reading live data from /proc
- * lightweight capture tool for embedded systems
- * JSON output support
-
+- system overview listing
+- listings by process, mapping, user
+- filtering by process, mapping, or user
+- configurable columns from multiple data sources
+- configurable output units and percentages
+- configurable headers and totals
+- reading live data from /proc
+- lightweight capture tool for embedded systems
+- JSON output support
 
 ## License
 
