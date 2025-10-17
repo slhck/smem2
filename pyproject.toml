@@ -1,6 +1,6 @@
 [project]
 name = "smem2"
-version = "2.2.1"
+version = "2.2.2"
 authors = [
   { name="Werner Robitza", email="werner.robitza@gmail.com" },
 ]

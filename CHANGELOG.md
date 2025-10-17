@@ -1,21 +1,12 @@
-# Changelog
+## [2.2.2] - 2025-10-17
 
-## v2.2.1
+### 📚 Documentation
 
-* Fix permissions issue reading `/proc/1/smaps`
+- Update readme
 
-## v2.2.0
+### ⚙️ Miscellaneous Tasks
 
-* Release as Python package and split up into library/CLI
-
-## v2.1.0
-
-* Add JSON output format (`--format json`)
-
-## v2.0.0
-
-* Various bug fixes
-* Code cleanup
-* Add type checking
-* Add Dockerfile
-* Fork from `G-dH/smem`
+- Add commitizen for conventional commits
+- Add python 3.14 support, remove old license classifier
+- Bump version to 2.2.2
+## [2.1.0] - 2024-04-25
