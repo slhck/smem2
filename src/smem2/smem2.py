@@ -721,19 +721,30 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
             else:
                 best_cmd = cmd_path
 
-            # Check if parent is /proc/self/exe - if so, walk through it
-            # to find the actual parent application
+            # Check if parent is /proc/self/exe or was merged into another app
             ppid = proc.pidppid(current_pid)
-            if ppid > 1:
+            if ppid > 1 and ppid not in visited:
                 parent_raw = proc.pidcmd_raw(ppid)
                 if parent_raw:
                     parent_parts = parent_raw.split()
                     if parent_parts:
                         parent_path = parent_parts[0]
+                        parent_base = os.path.basename(parent_path)
+
                         if parent_path.startswith("/proc/") and parent_path.endswith("/exe"):
                             # Parent is /proc/self/exe - resolve it and use that
                             current_pid = ppid
                             continue
+
+                        # Check if parent was merged into a different app
+                        # (i.e., parent's resolved name differs from its basename)
+                        parent_resolved = get_root_app_cmd(ppid)
+                        if parent_resolved and parent_resolved != "?":
+                            parent_resolved_base = os.path.basename(parent_resolved)
+                            if parent_resolved_base != parent_base:
+                                # Parent was merged, merge this one too
+                                parent_app_cache[pid] = parent_resolved
+                                return parent_resolved
 
             # Parent is not /proc/self/exe, we found the right app
             break
