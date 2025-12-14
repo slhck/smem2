@@ -33,6 +33,7 @@ class SmemConfig:
     sysdetail: bool = False
     groupcmd: bool = False
     group_children: bool = False
+    script_name: bool = False
     percent: bool = False
     abbreviate: bool = False
     totals: bool = False
@@ -628,6 +629,53 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
         dict: A dictionary where keys are command lines and values are
               dictionaries containing process lists and memory totals.
     """
+    # Known script interpreters (basenames)
+    interpreters = {
+        "python", "python2", "python3", "python3.9", "python3.10",
+        "python3.11", "python3.12", "python3.13", "python3.14",
+        "perl", "perl5",
+        "ruby",
+        "node", "nodejs",
+        "bash", "sh", "zsh", "fish", "dash",
+        "lua", "lua5.1", "lua5.2", "lua5.3", "lua5.4",
+        "php", "php7", "php8",
+        "Rscript",
+    }
+
+    def get_script_name(pid, cmd):
+        """Get script name if command is an interpreter running a script.
+
+        Args:
+            pid: Process ID to look up raw command line
+            cmd: The current command name (possibly basename)
+
+        Returns:
+            Script name if interpreter, otherwise original cmd
+        """
+        cmd_base = os.path.basename(cmd)
+        if cmd_base not in interpreters:
+            return cmd
+
+        # Get raw command line to find script argument
+        raw_cmd = proc.pidcmd_raw(pid)
+        if not raw_cmd:
+            return cmd
+
+        parts = raw_cmd.split()
+        if len(parts) < 2:
+            return cmd
+
+        # Find first argument that looks like a script (not an option)
+        for arg in parts[1:]:
+            if arg.startswith("-"):
+                continue
+            # Found a non-option argument - likely the script
+            if config.basename:
+                return os.path.basename(arg)
+            return arg
+
+        return cmd
+
     # Cache for parent app lookups when group_children is enabled
     parent_app_cache: dict = {}
 
@@ -724,6 +772,10 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
             c = get_root_app_cmd(p)
         else:
             c = parts[0]
+
+        # Use script name instead of interpreter if enabled
+        if config.script_name:
+            c = get_script_name(p, c)
 
         # if multiple processes per command, then a list of pids
         if c in ct:
