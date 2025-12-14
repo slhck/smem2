@@ -32,6 +32,7 @@ class SmemConfig:
     system: bool = False
     sysdetail: bool = False
     groupcmd: bool = False
+    group_children: bool = False
     percent: bool = False
     abbreviate: bool = False
     totals: bool = False
@@ -268,6 +269,40 @@ class ProcessData(Proc):
             return c
         except Exception:
             return "?"
+
+    def pidcmd_raw(self, pid):
+        """Gets the raw command line for a process, ignoring basename option.
+
+        Args:
+            pid (str): The process ID.
+
+        Returns:
+            str: The raw command line of the process, or '?' on error.
+        """
+        try:
+            c = self.read("%s/cmdline" % pid)[:-1]
+            return c.replace("\0", " ")
+        except Exception:
+            return "?"
+
+    def pidppid(self, pid):
+        """Gets the parent PID (PPID) for a process.
+
+        Args:
+            pid: The process ID.
+
+        Returns:
+            int: The parent process ID, or 0 on error.
+        """
+        try:
+            # PPID is in /proc/<pid>/stat, but comm field may contain spaces/parens
+            stat = self.read("%s/stat" % pid)
+            # Skip past (comm) field by finding last ')'
+            start = stat.rfind(')') + 2
+            fields = stat[start:].split()
+            return int(fields[1])  # PPID is field index 1 after (comm)
+        except Exception:
+            return 0
 
     def piduser(self, pid):
         """Gets the UID of the process owner.
@@ -593,6 +628,81 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
         dict: A dictionary where keys are command lines and values are
               dictionaries containing process lists and memory totals.
     """
+    # Cache for parent app lookups when group_children is enabled
+    parent_app_cache: dict = {}
+
+    def get_root_app_cmd(pid):
+        """Walk up parent tree to find the root application command.
+
+        Resolves /proc/self/exe symlinks and child processes to their
+        parent application. Walks up through any /proc/self/exe ancestors
+        to find the real parent app.
+        """
+        if pid in parent_app_cache:
+            return parent_app_cache[pid]
+
+        current_pid = pid
+        visited = set()
+        best_cmd = None
+
+        while current_pid > 1 and current_pid not in visited:
+            visited.add(current_pid)
+
+            raw_cmd = proc.pidcmd_raw(current_pid)
+            if not raw_cmd or raw_cmd == "?":
+                break
+
+            parts = raw_cmd.split()
+            if not parts:
+                break
+
+            cmd_path = parts[0]
+
+            # Check if this is a /proc/*/exe symlink (Electron helper process)
+            if cmd_path.startswith("/proc/") and cmd_path.endswith("/exe"):
+                # Walk up to parent
+                ppid = proc.pidppid(current_pid)
+                if ppid > 1:
+                    current_pid = ppid
+                    continue
+                break
+
+            # Found a real command - remember it
+            if config.basename:
+                best_cmd = os.path.basename(cmd_path)
+            else:
+                best_cmd = cmd_path
+
+            # Check if parent is /proc/self/exe - if so, walk through it
+            # to find the actual parent application
+            ppid = proc.pidppid(current_pid)
+            if ppid > 1:
+                parent_raw = proc.pidcmd_raw(ppid)
+                if parent_raw:
+                    parent_parts = parent_raw.split()
+                    if parent_parts:
+                        parent_path = parent_parts[0]
+                        if parent_path.startswith("/proc/") and parent_path.endswith("/exe"):
+                            # Parent is /proc/self/exe - resolve it and use that
+                            current_pid = ppid
+                            continue
+
+            # Parent is not /proc/self/exe, we found the right app
+            break
+
+        if best_cmd:
+            parent_app_cache[pid] = best_cmd
+            return best_cmd
+
+        # Fallback to original command
+        cmdline = proc.pidcmd(pid)
+        if cmdline:
+            parts = cmdline.split()
+            if parts:
+                parent_app_cache[pid] = parts[0]
+                return parts[0]
+        return "?"
+
     # totals per command
     ct: dict = {}
 
@@ -608,7 +718,12 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
         parts = cmdline.split()
         if not parts:
             continue
-        c = parts[0]
+
+        # Use recursive parent lookup if group_children is enabled
+        if config.group_children:
+            c = get_root_app_cmd(p)
+        else:
+            c = parts[0]
 
         # if multiple processes per command, then a list of pids
         if c in ct:
