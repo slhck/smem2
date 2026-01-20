@@ -286,6 +286,25 @@ class ProcessData(Proc):
         except Exception:
             return "?"
 
+    def pidexe(self, pid):
+        """Gets the actual executable path for a process via /proc/PID/exe.
+
+        This returns the real binary being executed, which may differ from
+        cmdline (e.g., firefox launcher shows /bin/firefox in cmdline but
+        actually runs /usr/lib/firefox/firefox-bin).
+
+        Args:
+            pid: The process ID.
+
+        Returns:
+            str: The executable path, or None if not readable.
+        """
+        try:
+            exe_path = "/proc/%s/exe" % pid
+            return os.readlink(exe_path)
+        except (OSError, PermissionError):
+            return None
+
     def pidppid(self, pid):
         """Gets the parent PID (PPID) for a process.
 
@@ -679,12 +698,59 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
     # Cache for parent app lookups when group_children is enabled
     parent_app_cache: dict = {}
 
+    def prefer_cmdline_or_exe(cmdline_path, exe_path):
+        """Decide whether to use cmdline or exe path for process name.
+
+        Heuristic:
+        - If cmdline starts with '[', it's a special process name (e.g.,
+          '[lxc monitor]') - prefer exe to group with parent app
+        - If cmdline basename is a prefix of exe basename, use cmdline
+          (e.g., 'firefox' vs 'firefox-bin' → 'firefox')
+          (e.g., 'kubectl' vs 'kubectl-v1.26.3' → 'kubectl')
+        - If they're unrelated, use cmdline (exe is probably an interpreter)
+          (e.g., 'claude' vs 'node' → 'claude')
+        - Otherwise use exe (more accurate)
+
+        Returns the preferred path.
+        """
+        if not exe_path:
+            return cmdline_path
+
+        cmdline_base = os.path.basename(cmdline_path)
+        exe_base = os.path.basename(exe_path)
+
+        # If cmdline starts with '[', it's a special process name like
+        # '[lxc monitor]' or '[kworker]' - prefer exe to group properly
+        if cmdline_base.startswith("["):
+            return exe_path
+
+        # If same, doesn't matter
+        if cmdline_base == exe_base:
+            return exe_path
+
+        # If cmdline is prefix of exe, prefer cmdline (shorter/cleaner)
+        # e.g., 'firefox' is prefix of 'firefox-bin'
+        # e.g., 'kubectl' is prefix of 'kubectl-v1.26.3'
+        if exe_base.startswith(cmdline_base):
+            return cmdline_path
+
+        # If exe is prefix of cmdline, prefer exe (shorter)
+        if cmdline_base.startswith(exe_base):
+            return exe_path
+
+        # Unrelated names - exe is probably an interpreter (node, python, etc.)
+        # Prefer cmdline as it shows the actual application name
+        return cmdline_path
+
     def get_root_app_cmd(pid):
         """Walk up parent tree to find the root application command.
 
-        Resolves /proc/self/exe symlinks and child processes to their
-        parent application. Walks up through any /proc/self/exe ancestors
-        to find the real parent app.
+        Uses /proc/PID/exe to get the actual binary being executed, but
+        prefers cmdline when it's more user-friendly (e.g., 'claude' over
+        'node', 'kubectl' over 'kubectl-v1.26.3').
+
+        Also resolves /proc/self/exe symlinks (Electron helper processes)
+        by walking up to the parent application.
         """
         if pid in parent_app_cache:
             return parent_app_cache[pid]
@@ -696,6 +762,7 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
         while current_pid > 1 and current_pid not in visited:
             visited.add(current_pid)
 
+            # Check cmdline for /proc/*/exe pattern (Electron helpers)
             raw_cmd = proc.pidcmd_raw(current_pid)
             if not raw_cmd or raw_cmd == "?":
                 break
@@ -704,16 +771,20 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
             if not parts:
                 break
 
-            cmd_path = parts[0]
+            cmdline_path = parts[0]
 
-            # Check if this is a /proc/*/exe symlink (Electron helper process)
-            if cmd_path.startswith("/proc/") and cmd_path.endswith("/exe"):
+            # Check if cmdline shows /proc/*/exe symlink (Electron helper process)
+            if cmdline_path.startswith("/proc/") and cmdline_path.endswith("/exe"):
                 # Walk up to parent
                 ppid = proc.pidppid(current_pid)
                 if ppid > 1:
                     current_pid = ppid
                     continue
                 break
+
+            # Get exe path and decide which to use
+            exe_path = proc.pidexe(current_pid)
+            cmd_path = prefer_cmdline_or_exe(cmdline_path, exe_path)
 
             # Found a real command - remember it
             if config.basename:
@@ -728,16 +799,18 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
                 if parent_raw:
                     parent_parts = parent_raw.split()
                     if parent_parts:
-                        parent_path = parent_parts[0]
-                        parent_base = os.path.basename(parent_path)
+                        parent_cmdline_path = parent_parts[0]
 
-                        if parent_path.startswith("/proc/") and parent_path.endswith("/exe"):
-                            # Parent is /proc/self/exe - resolve it and use that
+                        if parent_cmdline_path.startswith("/proc/") and parent_cmdline_path.endswith("/exe"):
+                            # Parent cmdline is /proc/self/exe - resolve it and use that
                             current_pid = ppid
                             continue
 
                         # Check if parent was merged into a different app
-                        # (i.e., parent's resolved name differs from its basename)
+                        # Use exe for parent comparison too
+                        parent_exe = proc.pidexe(ppid) or parent_cmdline_path
+                        parent_base = os.path.basename(parent_exe)
+
                         parent_resolved = get_root_app_cmd(ppid)
                         if parent_resolved and parent_resolved != "?":
                             parent_resolved_base = os.path.basename(parent_resolved)
@@ -753,7 +826,14 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
             parent_app_cache[pid] = best_cmd
             return best_cmd
 
-        # Fallback to original command
+        # Fallback: try exe first, then cmdline
+        exe = proc.pidexe(pid)
+        if exe:
+            if config.basename:
+                exe = os.path.basename(exe)
+            parent_app_cache[pid] = exe
+            return exe
+
         cmdline = proc.pidcmd(pid)
         if cmdline:
             parts = cmdline.split()
@@ -782,7 +862,10 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
         if config.group_children:
             c = get_root_app_cmd(p)
         else:
-            c = parts[0]
+            # Use exe with cmdline preference heuristic
+            exe = proc.pidexe(p)
+            cmd_path = prefer_cmdline_or_exe(parts[0], exe)
+            c = os.path.basename(cmd_path) if config.basename else cmd_path
 
         # Use script name instead of interpreter if enabled
         if config.script_name:
