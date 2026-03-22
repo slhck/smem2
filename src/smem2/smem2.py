@@ -389,8 +389,8 @@ def pidmaps(pid, proc: ProcessData, config: SmemConfig, nomaps=False):
         except (RuntimeError, PermissionError):
             status = None
 
-    for l in proc.mapdata(pid):
-        f = l.split()
+    for line in proc.mapdata(pid):
+        f = line.split()
         if f[-1] == "kB":
             maps[start][f[0][:-1].lower()] = int(f[1])
         elif "-" in f[0] and ":" not in f[0]:  # looks like a mapping range
@@ -439,7 +439,7 @@ def pidmaps(pid, proc: ProcessData, config: SmemConfig, nomaps=False):
                 maps[m]["rss"] = maps[m].get("shared_clean", 0) + maps[m].get(
                     "shared_dirty", 0
                 )
-        if config.rssdetail and status:
+        if config.rssdetail and status and start is not None:
             # from /proc/pid/status
             for s in status:
                 if "RssAnon" in s:
