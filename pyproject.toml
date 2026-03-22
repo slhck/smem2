@@ -6,10 +6,9 @@ authors = [
 ]
 description = "A tool to monitor memory usage of processes and the system"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -31,10 +30,14 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.16.0",
     "pytest>=8.4.0",
+    "ty>=0.0.24",
 ]
 
 [project.scripts]
 smem2 = "smem2.__main__:main"
+
+[tool.ty.rules]
+invalid-argument-type = "warn"
+too-many-positional-arguments = "warn"
 
