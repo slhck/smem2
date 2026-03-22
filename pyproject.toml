@@ -5,7 +5,7 @@ authors = [
   { name="Werner Robitza", email="werner.robitza@gmail.com" },
 ]
 description = "A tool to monitor memory usage of processes and the system"
-readme = "README.md"
+readme = "readme.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
