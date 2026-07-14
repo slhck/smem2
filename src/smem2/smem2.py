@@ -661,6 +661,34 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
         "Rscript",
     }
 
+    def get_java_name(pid):
+        """Derive a friendly name for a JVM process from its jar / module / main class."""
+        raw = proc.pidcmd_raw(pid)
+        if not raw:
+            return None
+        parts = raw.split()
+        # -jar app.jar  ->  app.jar
+        for i, a in enumerate(parts[1:], 1):
+            if a == "-jar" and i + 1 < len(parts):
+                return os.path.basename(parts[i + 1])
+        # -m/--module  module/pkg.MainClass  ->  MainClass
+        for i, a in enumerate(parts[1:], 1):
+            if a in ("-m", "--module") and i + 1 < len(parts):
+                return parts[i + 1].split("/")[-1].split(".")[-1]
+        # else: last non-option token is the main class -> last dotted component
+        skip_next = False
+        main = None
+        for a in parts[1:]:
+            if skip_next:
+                skip_next = False
+                continue
+            if a in ("-cp", "-classpath", "--class-path", "-p", "--module-path"):
+                skip_next = True
+                continue
+            if not a.startswith("-"):
+                main = a
+        return main.split(".")[-1] if main else None
+
     def get_script_name(pid, cmd):
         """Get script name if command is an interpreter running a script.
 
@@ -672,6 +700,9 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
             Script name if interpreter, otherwise original cmd
         """
         cmd_base = os.path.basename(cmd)
+        if cmd_base in ("java", "javaw"):
+            jname = get_java_name(pid)
+            return jname if jname else cmd
         if cmd_base not in interpreters:
             return cmd
 
