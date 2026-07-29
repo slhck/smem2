@@ -846,6 +846,25 @@ def parse_arguments(argv=None) -> SmemConfig:
     )
 
     show_group.add_argument(
+        "-G",
+        "--group-children",
+        action="store_true",
+        help="When grouping (-g), also group child processes with their parent "
+        "application by walking up the process tree. This merges helper "
+        "processes (like /proc/self/exe) and spawned children (like language "
+        "servers) with their parent app.",
+    )
+
+    show_group.add_argument(
+        "-S",
+        "--script-name",
+        action="store_true",
+        help="When grouping (-g), use script name instead of interpreter for "
+        "scripting languages (python, perl, ruby, node, etc.). For example, "
+        "'python3 /usr/bin/foo' becomes 'foo' instead of 'python3'.",
+    )
+
+    show_group.add_argument(
         "-p", "--percent", action="store_true", help="Show percentage"
     )
 
@@ -913,6 +932,8 @@ def parse_arguments(argv=None) -> SmemConfig:
     config.system = args.system or args.sysdetail
     config.sysdetail = args.sysdetail
     config.groupcmd = args.groupcmd
+    config.group_children = args.group_children
+    config.script_name = args.script_name
     config.percent = args.percent
     config.abbreviate = args.abbreviate
     config.totals = args.totals or args.totalsonly
