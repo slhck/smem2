@@ -806,9 +806,16 @@ def cmdtotals(pids, proc: ProcessData, config: SmemConfig):
 
             # Check if cmdline shows /proc/*/exe symlink (Electron helper process)
             if cmdline_path.startswith("/proc/") and cmdline_path.endswith("/exe"):
-                # Walk up to parent
+                # Its own cmdline (/proc/self/exe) is useless, so normally we
+                # walk up to the parent app to name the group. But an ORPHANED
+                # helper (its parent app has exited) gets reparented to
+                # systemd/init - don't file it under the service manager. Break
+                # and let the fallback below resolve this process's own exe
+                # (e.g. /opt/Freelens/freelens -> "freelens").
                 ppid = proc.pidppid(current_pid)
-                if ppid > 1:
+                parent_exe = proc.pidexe(ppid) if ppid > 1 else None
+                parent_base = os.path.basename(parent_exe) if parent_exe else ""
+                if ppid > 1 and parent_base not in ("systemd", "init"):
                     current_pid = ppid
                     continue
                 break
