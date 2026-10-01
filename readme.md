@@ -1,4 +1,8 @@
-# smem2
+<h1 align="center">smem2</h1>
+
+<p align="center">
+  <img src="icon.png" alt="smem2 logo" width="160" height="160">
+</p>
 
 `smem2` is a tool that can give numerous reports on memory usage on Linux systems. Unlike existing tools, smem2 can report proportional set size (PSS), which is a more meaningful representation of the amount of memory used by libraries and applications in a virtual memory system.
 
