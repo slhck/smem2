@@ -24,6 +24,10 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --group dev
+    - name: Lint with ruff
+      run: |
+        uv run ruff check .
+        uv run ruff format --check .
     - name: Type check with ty
       run: |
         uv run ty check
