@@ -9,7 +9,6 @@ from typing import Callable
 from . import __version__
 from .smem2 import (
     MemData,
-    Proc,
     ProcessData,
     SmemConfig,
     get_cmd_data,
@@ -109,8 +108,8 @@ def show_fields_error_and_exit(fields, f):
     else:
         print("unknown field %s" % f, file=sys.stderr)
     print("known fields:", file=sys.stderr)
-    for l in sorted(fields):
-        print("%-8s %s" % (l, fields[l][-1]), file=sys.stderr)
+    for name in sorted(fields):
+        print("%-8s %s" % (name, fields[name][-1]), file=sys.stderr)
 
     sys.exit(-1)
 
@@ -213,15 +212,15 @@ def showtable(rows: list, fields: dict, columns: list, sort: str, config: SmemCo
         table_format += f + " "
         header += f % fields[n][0] + " "
 
-    l = []
+    table_rows = []
     for n in rows:
         r = [fields[c][1](n) for c in columns]
-        l.append((fields[sort][1](n), r))
+        table_rows.append((fields[sort][1](n), r))
 
     if sort in ("command", "comm"):
-        l.sort(reverse=bool(config.reverse), key=lambda v: v[0].lower())
+        table_rows.sort(reverse=bool(config.reverse), key=lambda v: v[0].lower())
     else:
-        l.sort(reverse=bool(config.reverse))
+        table_rows.sort(reverse=bool(config.reverse))
 
     if config.format == "raw":
         if not config.no_header:
@@ -229,7 +228,7 @@ def showtable(rows: list, fields: dict, columns: list, sort: str, config: SmemCo
             print("-" * len(header))
 
         if not config.totalsonly:
-            for k, r in l:
+            for k, r in table_rows:
                 print(table_format % tuple([f(v) for f, v in zip(formatter, r)]))
 
         if config.totals:
@@ -249,7 +248,7 @@ def showtable(rows: list, fields: dict, columns: list, sort: str, config: SmemCo
         ret: dict
         if not config.totals:
             data = []
-            for _k, row in l:
+            for _k, row in table_rows:
                 row_data = {}
                 for i, col in enumerate(columns):
                     # row_data[col] = row[i] --> raw
@@ -942,7 +941,6 @@ def main():
     """Main function."""
     try:
         config = parse_arguments()
-        proc = Proc()
         process_data = ProcessData(config)
         setdatasources(config, process_data)
 
