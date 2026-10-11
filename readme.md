@@ -21,7 +21,7 @@ Contents:
 
 ## Requirements
 
-- Python 3.9 or higher
+- Python 3.10 or higher
 - Linux (with procfs) with a reasonably modern kernel (> 2.6.27 or so)
 
 ## Installation
